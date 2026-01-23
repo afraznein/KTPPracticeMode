@@ -1,9 +1,9 @@
-/* KTP Practice Mode v1.0.0
+/* KTP Practice Mode v1.0.1
  * Server practice mode with infinite grenades, extended timelimit, and noclip
  *
  * AUTHOR: Nein_
- * VERSION: 1.0.0
- * DATE: 2026-01-22
+ * VERSION: 1.0.1
+ * DATE: 2026-01-23
  *
  * ========== FEATURES ==========
  * - Infinite grenades (refill on throw)
@@ -23,6 +23,10 @@
  *
  * ========== CHANGELOG ==========
  *
+ * v1.0.1 (2026-01-23) - Extension Mode Compatibility
+ *   * CHANGED: Use dodx_set_user_noclip instead of fun module's set_user_noclip
+ *   * REMOVED: engine, fun, dodfun include dependencies
+ *
  * v1.0.0 (2026-01-22) - Initial Release
  *   + ADDED: Practice mode with infinite grenades
  *   + ADDED: Noclip toggle command
@@ -34,14 +38,11 @@
 
 #include <amxmodx>
 #include <amxmisc>
-#include <engine>
-#include <fun>
 #include <dodx>
-#include <dodfun>
 #include <dodconst>
 
 #define PLUGIN_NAME    "KTP Practice Mode"
-#define PLUGIN_VERSION "1.0.0"
+#define PLUGIN_VERSION "1.0.1"
 #define PLUGIN_AUTHOR  "Nein_"
 
 // Grenade weapon IDs
@@ -193,10 +194,10 @@ public cmd_noclip(id) {
     g_bPlayerNoclip[id] = !g_bPlayerNoclip[id];
 
     if (g_bPlayerNoclip[id]) {
-        set_user_noclip(id, 1);
+        dodx_set_user_noclip(id, 1);
         client_print(id, print_chat, "[KTP] Noclip ENABLED. Use .noclip again to disable.");
     } else {
-        set_user_noclip(id, 0);
+        dodx_set_user_noclip(id, 0);
         client_print(id, print_chat, "[KTP] Noclip DISABLED.");
     }
 
@@ -234,7 +235,7 @@ exit_practice_mode(id) {
     // Reset all player noclip states
     for (new i = 1; i <= get_maxplayers(); i++) {
         if (g_bPlayerNoclip[i] && is_user_connected(i)) {
-            set_user_noclip(i, 0);
+            dodx_set_user_noclip(i, 0);
             g_bPlayerNoclip[i] = false;
         }
     }

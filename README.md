@@ -1,6 +1,6 @@
 # KTP Practice Mode
 
-**Version 1.0.0** - Practice mode plugin for Day of Defeat servers
+**Version 1.0.1** - Practice mode plugin for Day of Defeat servers
 
 An AMX Mod X plugin that provides a practice mode with infinite grenades, extended timelimit, noclip, and automatic cleanup when the server empties.
 
