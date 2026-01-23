@@ -31,8 +31,7 @@ This will:
 - **Dynamic hostname**: Appends " - PRACTICE" to server name
 
 ## Dependencies
-- **KTPAMXX** with DODX module (`dodx_set_grenade_ammo`, `dodx_get_grenade_ammo` natives)
-- **dodfun** module (`grenade_throw` forward)
+- **KTPAMXX** with DODX module (`grenade_throw` forward, `dodx_set_grenade_ammo`, `dodx_get_grenade_ammo` natives)
 
 ## Match State Detection
 Checks `_ktp_mid` localinfo set by KTPMatchHandler to detect active matches.

@@ -14,7 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Sets mp_timelimit to 99 minutes
   - Enables sv_cheats for noclip support
 - **Infinite grenades** - Automatic refill on throw
-  - Hooks `grenade_throw` forward from dodfun
+  - Hooks `grenade_throw` forward from DODX
   - 0.1s delay ensures throw is processed first
   - Auto-detects grenade type by team/class
 - **Noclip command** - `.noclip` / `.nc` toggle
@@ -32,7 +32,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Technical
 - Uses DODX natives: `dodx_set_grenade_ammo()`, `dodx_get_grenade_ammo()`
-- Uses dodfun forward: `grenade_throw()`
+- Uses DODX forward: `grenade_throw()`
 - Match state detection via `_ktp_mid` localinfo
 
 ---

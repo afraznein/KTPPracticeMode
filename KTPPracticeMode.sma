@@ -19,8 +19,7 @@
  * - .noclip / .nc - Toggle noclip (only during practice mode)
  *
  * ========== REQUIREMENTS ==========
- * - KTPAMXX with DODX module (grenade natives)
- * - dodfun module (grenade_throw forward)
+ * - KTPAMXX with DODX module (grenade natives, grenade_throw forward)
  *
  * ========== CHANGELOG ==========
  *

@@ -19,9 +19,7 @@ An AMX Mod X plugin that provides a practice mode with infinite grenades, extend
 
 ## Requirements
 
-- **KTPAMXX** with:
-  - DODX module (grenade ammo natives)
-  - dodfun module (`grenade_throw` forward)
+- **KTPAMXX** with DODX module (grenade ammo natives and `grenade_throw` forward)
 
 ---
 
@@ -65,7 +63,7 @@ An AMX Mod X plugin that provides a practice mode with infinite grenades, extend
 - Starts monitoring for empty server
 
 ### Infinite Grenades
-- Hooks the `grenade_throw` forward from dodfun module
+- Hooks the `grenade_throw` forward from DODX module
 - When a grenade is thrown, schedules a 0.1s task to refill
 - Automatically detects grenade type based on team/class:
   - US classes: Hand Grenade
