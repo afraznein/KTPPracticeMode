@@ -61,7 +61,8 @@ echo "       Compiler: $KTPAMXX_BUILD/amxxpc"
 echo "       Includes: $KTPAMXX_INCLUDES"
 echo
 
-# Create temp build directory
+# Create fresh temp build directory (remove stale includes)
+rm -rf "$TEMP_BUILD"
 mkdir -p "$TEMP_BUILD"
 
 # Copy compiler and libraries

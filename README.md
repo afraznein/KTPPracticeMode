@@ -1,25 +1,33 @@
 # KTP Practice Mode
 
-**Version 1.0.1** - Practice mode plugin for Day of Defeat servers
+**Version 1.3.0** - Practice mode plugin for Day of Defeat servers
 
-An AMX Mod X plugin that provides a practice mode with infinite grenades, extended timelimit, noclip, and automatic cleanup when the server empties.
+An AMX Mod X plugin that provides a practice mode with infinite grenades, extended timelimit, noclip, and automatic cleanup when the server empties or a match starts.
 
 ---
 
 ## Features
 
-- **Infinite grenades** - Grenades refill immediately after throwing
+- **Infinite grenades** - Grenades refill after explosion via `dod_grenade_explosion` forward
+- **Grenade spawn command** - `.grenade` for classes without default grenades
 - **Extended timelimit** - Sets mp_timelimit to 99 minutes
 - **Noclip command** - All players can toggle noclip during practice
-- **Auto-exit** - Automatically exits practice mode when server empties
+- **HUD indicator** - Green "KTP PRACTICE MODE" at top of screen
+- **Chat reminders** - Periodic command reminders every 3 minutes
+- **Auto-exit** - Exits when server empties OR when a match starts
 - **Dynamic hostname** - Appends " - PRACTICE" to server name
-- **Match protection** - Blocked when a KTPMatchHandler match is active
+- **Match protection** - Blocked when KTPMatchHandler match is active (including pre-start)
+- **Map change handling** - Properly cleans up and announces on map change
 
 ---
 
 ## Requirements
 
-- **KTPAMXX** with DODX module (grenade ammo natives and `grenade_throw` forward)
+- **KTPAMXX 2.6.7+** with DODX module:
+  - `dod_grenade_explosion` forward
+  - `dodx_give_grenade()` native
+  - `dodx_set_user_noclip()` native
+- **KTPMatchHandler** (optional) - For `ktp_is_match_active()` native
 
 ---
 
@@ -50,6 +58,7 @@ An AMX Mod X plugin that provides a practice mode with infinite grenades, extend
 | `.practice` / `.prac` | Enter practice mode (anyone, when no match active) |
 | `.endpractice` / `.endprac` | Exit practice mode |
 | `.noclip` / `.nc` | Toggle noclip (only during practice mode) |
+| `.grenade` / `.nade` | Get a grenade (only during practice mode) |
 
 ---
 
@@ -57,18 +66,20 @@ An AMX Mod X plugin that provides a practice mode with infinite grenades, extend
 
 ### Entering Practice Mode
 - Any player can type `.practice` when no match is active
-- Checks `_ktp_mid` localinfo to detect active KTPMatchHandler matches
+- Uses `ktp_is_match_active()` native to detect matches (including pre-start phase)
 - Sets `mp_timelimit 99` and `sv_cheats 1` (required for noclip)
 - Appends " - PRACTICE" to server hostname
-- Starts monitoring for empty server
+- Starts HUD indicator and chat reminder tasks
+- Starts monitoring for empty server or match start
 
 ### Infinite Grenades
-- Hooks the `grenade_throw` forward from DODX module
-- When a grenade is thrown, schedules a 0.1s task to refill
-- Automatically detects grenade type based on team/class:
-  - US classes: Hand Grenade
-  - British classes: Mills Bomb
-  - Axis classes: Stick Grenade
+- Hooks the `dod_grenade_explosion` forward from DODX module
+- When a grenade explodes, gives the same grenade type back via `dodx_give_grenade()`
+- Works for all grenade types (hand, stick, Mills bomb)
+
+### Grenade Spawn
+- `.grenade` command gives team-appropriate grenade
+- Useful for classes without default grenades (sniper, MG, etc.)
 
 ### Noclip
 - Only available during practice mode
@@ -79,10 +90,10 @@ An AMX Mod X plugin that provides a practice mode with infinite grenades, extend
 ### Exiting Practice Mode
 - Manual: Any player types `.endpractice`
 - Automatic: When server empties (checked every 5 seconds)
-- Restores original `mp_timelimit`
-- Sets `sv_cheats 0`
-- Resets hostname to base name
-- Disables noclip for all players
+- Automatic: When a match starts (pre-start phase detected)
+- On map change: Cleans up and announces on new map
+- Restores original `mp_timelimit` and sets `sv_cheats 0`
+- Resets hostname and disables noclip for all players
 
 ---
 
