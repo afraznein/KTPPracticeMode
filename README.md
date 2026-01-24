@@ -18,6 +18,7 @@ An AMX Mod X plugin that provides a practice mode with infinite grenades, extend
 - **Dynamic hostname** - Appends " - PRACTICE" to server name
 - **Match protection** - Blocked when KTPMatchHandler match is active (including pre-start)
 - **Map change handling** - Properly cleans up and announces on map change
+- **Version display** - Shows plugin version to players on connect
 
 ---
 
