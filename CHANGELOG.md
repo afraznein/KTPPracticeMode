@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.3.1] - 2026-03-13
+
+### Fixed
+- **`set_task` used raw player ID as task ID** — Version display task now uses `TASK_VERSION_BASE` offset with cleanup on `client_disconnected`.
+
+---
+
 ## [1.3.0] - 2026-01-24
 
 ### Removed
