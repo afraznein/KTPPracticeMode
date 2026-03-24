@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.3.2] - 2026-03-24
+
+### Fixed
+- **`client_death` now clears noclip engine state** — Previously only cleared the tracking flag but did not call `dodx_set_user_noclip(0)`. Players who died in noclip respawned still flying, and `exit_practice_mode` skipped them because the flag was already false.
+- **Hostname restore race on map change** — The 0.5s restore task fired before server configs loaded, potentially restoring an empty or stale hostname. Now fires at 1.5s and reads the hostname fresh from the cvar after configs have run.
+- **British team support in `.grenade`** — Team 3 (British) was unhandled, getting "must be on a team" error. Now gives Mills Bomb (DODW_MILLS_BOMB) for British players.
+- **Repeating task accumulation guard** — Added `remove_task` before each `set_task("b")` call in `cmd_practice` to prevent duplicate tasks on edge-case double-activation.
+- **`g_szBaseHostname` buffer increased from 64 to 128** — Prevents silent truncation of long hostnames, matches the downstream `hostname[128]` buffer.
+
+### Changed
+- **Version display removed** — No longer sends plugin info to players on connect. Dead `TASK_VERSION_BASE`, `task_version_display`, `client_putinserver` version logic all removed.
+- **`strip_hostname_suffixes` unused `maxlen` parameter removed** — Function only shortens strings in-place, never needs a max length.
+
+---
+
 ## [1.3.1] - 2026-03-13
 
 ### Fixed

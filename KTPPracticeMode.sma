@@ -1,9 +1,9 @@
-/* KTP Practice Mode v1.3.1
+/* KTP Practice Mode v1.3.2
  * Server practice mode with infinite grenades, extended timelimit, and noclip
  *
  * AUTHOR: Nein_
- * VERSION: 1.3.1
- * DATE: 2026-03-13
+ * VERSION: 1.3.2
+ * DATE: 2026-03-24
  *
  * ========== FEATURES ==========
  * - Infinite grenades (refill on explosion)
@@ -24,6 +24,13 @@
  * - KTPAMXX 2.6.6+ with DODX module (grenade natives, dod_grenade_explosion forward)
  *
  * ========== CHANGELOG ==========
+ *
+ * v1.3.2 (2026-03-24) - Bug fixes + cleanup
+ *   * FIXED: client_death noclip engine state not cleared (players respawned flying)
+ *   * FIXED: Hostname restore race on map change (reads fresh at 1.5s)
+ *   * FIXED: British team unhandled in .grenade (now gives Mills Bomb)
+ *   * FIXED: Repeating task accumulation guard added
+ *   * CHANGED: g_szBaseHostname buffer 64->128, version display removed
  *
  * v1.3.0 (2026-01-23) - Removed Hostname Broadcast
  *   * REMOVED: Engine hostname broadcast feature (caused forced respawn + menus)
@@ -81,7 +88,7 @@
 native ktp_is_match_active();
 
 #define PLUGIN_NAME    "KTP Practice Mode"
-#define PLUGIN_VERSION "1.3.1"
+#define PLUGIN_VERSION "1.3.2"
 #define PLUGIN_AUTHOR  "Nein_"
 
 // Grenade weapon IDs
@@ -91,7 +98,7 @@ native ktp_is_match_active();
 
 // Practice mode state
 new bool:g_bPracticeMode = false;
-new g_szBaseHostname[64];
+new g_szBaseHostname[128];
 new g_iPreviousTimelimit;
 
 // Noclip tracking
@@ -109,8 +116,6 @@ new bool:g_bPlayerNoclip[33];
 #define TASK_CHAT_REMINDER 4000
 #define CHAT_REMINDER_INTERVAL 180.0  // 3 minutes
 
-// Version display task (KTPPracticeMode owns 5000-5032)
-#define TASK_VERSION_BASE 5000  // + player id (range 5001-5032)
 
 // HUD sync object
 new g_hudSync;
@@ -154,8 +159,9 @@ public plugin_init() {
         g_bPracticeMode = false;
         set_cvar_num("sv_cheats", 0);
 
-        // Schedule hostname restoration for after plugin_cfg
-        set_task(0.5, "task_restore_hostname_after_mapchange");
+        // Schedule hostname restoration AFTER plugin_cfg + server configs have run (1.5s)
+        // This ensures g_szBaseHostname is populated correctly before we restore
+        set_task(1.5, "task_restore_hostname_after_mapchange");
 
         // Delayed announcement so players see it after connecting
         set_task(5.0, "task_announce_practice_ended");
@@ -172,16 +178,14 @@ public plugin_cfg() {
 // Delayed hostname refresh after server configs have run
 public task_refresh_hostname_after_config() {
     get_cvar_string("hostname", g_szBaseHostname, charsmax(g_szBaseHostname));
-    strip_hostname_suffixes(g_szBaseHostname, charsmax(g_szBaseHostname));
+    strip_hostname_suffixes(g_szBaseHostname);
     log_amx("[KTPPracticeMode] Hostname cached (delayed): %s", g_szBaseHostname);
 }
 
 public task_restore_hostname_after_mapchange() {
-    // Strip " - PRACTICE" if still present
-    new pos = containi(g_szBaseHostname, " - PRACTICE");
-    if (pos != -1) {
-        g_szBaseHostname[pos] = EOS;
-    }
+    // Read hostname fresh (configs have run by now at 1.5s delay)
+    get_cvar_string("hostname", g_szBaseHostname, charsmax(g_szBaseHostname));
+    strip_hostname_suffixes(g_szBaseHostname);
 
     server_cmd("hostname ^"%s^"", g_szBaseHostname);
     server_exec();
@@ -228,13 +232,16 @@ public cmd_practice(id) {
     set_cvar_num("mp_timelimit", 99);
     set_cvar_num("sv_cheats", 1);  // Required for noclip
 
-    // Start player count monitoring
+    // Start player count monitoring (remove first to prevent accumulation on edge cases)
+    remove_task(TASK_CHECK_PLAYERS);
     set_task(PLAYER_CHECK_INTERVAL, "task_check_players", TASK_CHECK_PLAYERS, _, _, "b");
 
     // Start HUD indicator
+    remove_task(TASK_HUD_UPDATE);
     set_task(HUD_UPDATE_INTERVAL, "task_update_hud", TASK_HUD_UPDATE, _, _, "b");
 
     // Start chat reminder (every 3 minutes)
+    remove_task(TASK_CHAT_REMINDER);
     set_task(CHAT_REMINDER_INTERVAL, "task_chat_reminder", TASK_CHAT_REMINDER, _, _, "b");
 
     // Announce
@@ -305,6 +312,8 @@ public cmd_grenade(id) {
         wpnid = DODW_HANDGRENADE;
     } else if (team == 2) {
         wpnid = DODW_STICKGRENADE;
+    } else if (team == 3) {
+        wpnid = DODW_MILLS_BOMB;  // British team
     } else {
         client_print(id, print_chat, "[KTP] You must be on a team to get a grenade.");
         return PLUGIN_HANDLED;
@@ -407,9 +416,11 @@ public task_chat_reminder() {
     client_print(0, print_chat, "[KTP] Practice mode active. Commands: .grenade, .noclip, .endpractice");
 }
 
-// Reset noclip when player dies
+// Reset noclip when player dies — must clear BOTH engine state and tracking flag
+// so exit_practice_mode doesn't skip this player
 public client_death(killer, victim, wpnindex, hitplace, TK) {
     if (g_bPlayerNoclip[victim]) {
+        dodx_set_user_noclip(victim, 0);
         g_bPlayerNoclip[victim] = false;
     }
 }
@@ -420,24 +431,8 @@ public plugin_end() {
     }
 }
 
-public client_putinserver(id) {
-    if (is_user_bot(id) || is_user_hltv(id))
-        return;
-
-    set_task(5.0, "task_version_display", id + TASK_VERSION_BASE);
-}
-
 public client_disconnected(id) {
     g_bPlayerNoclip[id] = false;
-    remove_task(id + TASK_VERSION_BASE);
-}
-
-public task_version_display(taskid) {
-    new id = taskid - TASK_VERSION_BASE;
-    if (id < 1 || id > MAX_PLAYERS || !is_user_connected(id))
-        return;
-
-    client_print(id, print_chat, "%s version %s by %s", PLUGIN_NAME, PLUGIN_VERSION, PLUGIN_AUTHOR);
 }
 
 // Update hostname with practice mode state (simple cvar change, no broadcast)
@@ -458,8 +453,7 @@ update_hostname() {
 }
 
 // Strip match state suffixes from hostname to get base name
-strip_hostname_suffixes(hostname[], maxlen = 0) {
-    #pragma unused maxlen
+strip_hostname_suffixes(hostname[]) {
     static const patterns[][] = {
         " - PRACTICE",
         " - KTP OT - LIVE",
