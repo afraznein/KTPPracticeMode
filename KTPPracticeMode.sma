@@ -1,9 +1,9 @@
-/* KTP Practice Mode v1.3.2
+/* KTP Practice Mode v1.4.0
  * Server practice mode with infinite grenades, extended timelimit, and noclip
  *
  * AUTHOR: Nein_
- * VERSION: 1.3.2
- * DATE: 2026-03-24
+ * VERSION: 1.4.0
+ * DATE: 2026-04-04
  *
  * ========== FEATURES ==========
  * - Infinite grenades (refill on explosion)
@@ -24,6 +24,17 @@
  * - KTPAMXX 2.6.6+ with DODX module (grenade natives, dod_grenade_explosion forward)
  *
  * ========== CHANGELOG ==========
+ *
+ * v1.4.0 (2026-04-04) - Fix .grenade, explosion refill, and .noclip
+ *   * FIXED: .grenade and explosion refill broken — game removes weapon entity
+ *     when last grenade is thrown. Now always calls dodx_give_grenade to recreate
+ *     the weapon slot, then dodx_set_grenade_ammo + dodx_send_ammox to set ammo.
+ *   * FIXED: .noclip broken due to DODX CPlayer not initialized in extension mode.
+ *     Root cause was g_pFirstEdict NULL on first map (SV_ActivateServer hook missed).
+ *     Fixed in KTPAMXX 2.7.4 DODX module.
+ *   * CHANGED: Requires KTPAMXX 2.7.4+ (DODX fallback init for first map load)
+ *
+ * v1.3.3 (2026-04-03) - Intermediate fix attempt (superseded by v1.4.0)
  *
  * v1.3.2 (2026-03-24) - Bug fixes + cleanup
  *   * FIXED: client_death noclip engine state not cleared (players respawned flying)
@@ -88,13 +99,17 @@
 native ktp_is_match_active();
 
 #define PLUGIN_NAME    "KTP Practice Mode"
-#define PLUGIN_VERSION "1.3.2"
+#define PLUGIN_VERSION "1.4.0"
 #define PLUGIN_AUTHOR  "Nein_"
 
 // Grenade weapon IDs
 #define DODW_HANDGRENADE  13
 #define DODW_STICKGRENADE 14
 #define DODW_MILLS_BOMB   36
+
+// Ammo slots for HUD sync (AmmoX message)
+#define AMMOSLOT_HANDGRENADE   9
+#define AMMOSLOT_STICKGRENADE  11
 
 // Practice mode state
 new bool:g_bPracticeMode = false;
@@ -200,8 +215,11 @@ public dod_grenade_explosion(id, Float:pos[3], wpnid) {
     if (!is_user_connected(id) || !is_user_alive(id))
         return;
 
-    // Give the grenade weapon back using DODX native
+    // Refill grenade: give weapon entity (in case slot was removed) then set ammo + sync HUD
     dodx_give_grenade(id, wpnid);
+    dodx_set_grenade_ammo(id, wpnid, 1);
+    new ammoSlot = (wpnid == DODW_STICKGRENADE) ? AMMOSLOT_STICKGRENADE : AMMOSLOT_HANDGRENADE;
+    dodx_send_ammox(id, ammoSlot, 1);
 }
 
 public cmd_practice(id) {
@@ -319,7 +337,12 @@ public cmd_grenade(id) {
         return PLUGIN_HANDLED;
     }
 
+    // Give weapon entity (creates pickup if slot was removed after throwing last grenade)
+    // then set ammo + sync HUD
     dodx_give_grenade(id, wpnid);
+    dodx_set_grenade_ammo(id, wpnid, 1);
+    new ammoSlot = (wpnid == DODW_STICKGRENADE) ? AMMOSLOT_STICKGRENADE : AMMOSLOT_HANDGRENADE;
+    dodx_send_ammox(id, ammoSlot, 1);
     client_print(id, print_chat, "[KTP] Grenade given.");
 
     return PLUGIN_HANDLED;

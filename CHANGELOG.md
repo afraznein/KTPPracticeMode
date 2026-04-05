@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.4.0] - 2026-04-04
+
+### Fixed
+- **`.grenade` not spawning grenades** — DoD removes the weapon entity when the last grenade is thrown. Setting pdata ammo alone creates "invisible" grenades the player can't select. Now always calls `dodx_give_grenade()` to recreate the weapon slot, then `dodx_set_grenade_ammo()` + `dodx_send_ammox()` to set ammo and sync HUD.
+- **Infinite grenade refill on explosion** — Same root cause. `dod_grenade_explosion` handler now gives weapon entity + sets ammo + syncs HUD on every explosion.
+- **`.noclip` not working** — DODX `CPlayer` array was uninitialized in extension mode on first map load because `g_pFirstEdict` was NULL (SV_ActivateServer hook registered after server already activated). Fixed in KTPAMXX 2.7.4 DODX module with fallback init.
+
+### Changed
+- Requires KTPAMXX 2.7.4+ (DODX fallback init for first map load)
+
+---
+
 ## [1.3.2] - 2026-03-24
 
 ### Fixed
