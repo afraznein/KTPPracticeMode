@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.4.1] - 2026-04-20
+
+### Added
+- **Diagnostic logging in grenade paths** — `dod_grenade_explosion` now logs entry state (player id, wpnid, practice/connected/alive flags) and the return values of `dodx_give_grenade()`, `dodx_set_grenade_ammo()`, `dodx_send_ammox()`. `cmd_grenade` gets the same diagnostics for parity.
+- Low-volume (only fires during active practice mode) and kept permanent. Purpose is to narrow the 2026-04-17 ATL2 regression where auto-refill silently stopped working after a map change.
+
+---
+
 ## [1.4.0] - 2026-04-04
 
 ### Fixed

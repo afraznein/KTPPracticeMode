@@ -25,6 +25,14 @@
  *
  * ========== CHANGELOG ==========
  *
+ * v1.4.1 (2026-04-20) - Grenade refill diagnostic logging
+ *   + ADDED: log_amx in dod_grenade_explosion — entry state (id/wpnid/practice/
+ *     connected/alive) + native return values (give/setammo/sendammox/ammoSlot).
+ *   + ADDED: log_amx in cmd_grenade — parity diagnostics.
+ *   * Purpose: narrow the 2026-04-17 ATL2 regression where auto-refill stopped
+ *     working post map-change. Forward vs natives pinpointed from log output.
+ *   * Low volume — only fires during practice mode. Kept permanent, not gated.
+ *
  * v1.4.0 (2026-04-04) - Fix .grenade, explosion refill, and .noclip
  *   * FIXED: .grenade and explosion refill broken — game removes weapon entity
  *     when last grenade is thrown. Now always calls dodx_give_grenade to recreate
@@ -99,7 +107,7 @@
 native ktp_is_match_active();
 
 #define PLUGIN_NAME    "KTP Practice Mode"
-#define PLUGIN_VERSION "1.4.0"
+#define PLUGIN_VERSION "1.4.1"
 #define PLUGIN_AUTHOR  "Nein_"
 
 // Grenade weapon IDs
@@ -209,6 +217,11 @@ public task_restore_hostname_after_mapchange() {
 
 // Forward: Grenade exploded - give the grenade weapon back if in practice mode
 public dod_grenade_explosion(id, Float:pos[3], wpnid) {
+    // Diagnostic entry — fires on every explosion (low volume; only during practice)
+    log_amx("[KTPPracticeMode] dod_grenade_explosion entry: id=%d wpnid=%d practice=%d connected=%d alive=%d",
+        id, wpnid, g_bPracticeMode ? 1 : 0,
+        is_user_connected(id) ? 1 : 0, is_user_alive(id) ? 1 : 0);
+
     if (!g_bPracticeMode)
         return;
 
@@ -216,10 +229,13 @@ public dod_grenade_explosion(id, Float:pos[3], wpnid) {
         return;
 
     // Refill grenade: give weapon entity (in case slot was removed) then set ammo + sync HUD
-    dodx_give_grenade(id, wpnid);
-    dodx_set_grenade_ammo(id, wpnid, 1);
+    new give_ret = dodx_give_grenade(id, wpnid);
+    new setammo_ret = dodx_set_grenade_ammo(id, wpnid, 1);
     new ammoSlot = (wpnid == DODW_STICKGRENADE) ? AMMOSLOT_STICKGRENADE : AMMOSLOT_HANDGRENADE;
-    dodx_send_ammox(id, ammoSlot, 1);
+    new sendammox_ret = dodx_send_ammox(id, ammoSlot, 1);
+
+    log_amx("[KTPPracticeMode] refill result: id=%d wpnid=%d give=%d setammo=%d sendammox=%d ammoSlot=%d",
+        id, wpnid, give_ret, setammo_ret, sendammox_ret, ammoSlot);
 }
 
 public cmd_practice(id) {
@@ -339,11 +355,14 @@ public cmd_grenade(id) {
 
     // Give weapon entity (creates pickup if slot was removed after throwing last grenade)
     // then set ammo + sync HUD
-    dodx_give_grenade(id, wpnid);
-    dodx_set_grenade_ammo(id, wpnid, 1);
+    new give_ret = dodx_give_grenade(id, wpnid);
+    new setammo_ret = dodx_set_grenade_ammo(id, wpnid, 1);
     new ammoSlot = (wpnid == DODW_STICKGRENADE) ? AMMOSLOT_STICKGRENADE : AMMOSLOT_HANDGRENADE;
-    dodx_send_ammox(id, ammoSlot, 1);
+    new sendammox_ret = dodx_send_ammox(id, ammoSlot, 1);
     client_print(id, print_chat, "[KTP] Grenade given.");
+
+    log_amx("[KTPPracticeMode] cmd_grenade: id=%d team=%d wpnid=%d give=%d setammo=%d sendammox=%d ammoSlot=%d",
+        id, team, wpnid, give_ret, setammo_ret, sendammox_ret, ammoSlot);
 
     return PLUGIN_HANDLED;
 }
