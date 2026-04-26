@@ -102,12 +102,13 @@
 #include <amxmisc>
 #include <dodx>
 #include <dodconst>
+#include <ktp_version_reporter>
 
 // Native from KTPMatchHandler - returns 1 if match is live, pending, or in prestart
 native ktp_is_match_active();
 
 #define PLUGIN_NAME    "KTP Practice Mode"
-#define PLUGIN_VERSION "1.4.1"
+#define PLUGIN_VERSION "1.4.2"
 #define PLUGIN_AUTHOR  "Nein_"
 
 // Grenade weapon IDs
@@ -145,6 +146,7 @@ new g_hudSync;
 
 public plugin_init() {
     register_plugin(PLUGIN_NAME, PLUGIN_VERSION, PLUGIN_AUTHOR);
+    KTP_RegisterVersion(PLUGIN_NAME, PLUGIN_VERSION);
 
     // Create HUD sync object for practice mode indicator
     g_hudSync = CreateHudSyncObj();
