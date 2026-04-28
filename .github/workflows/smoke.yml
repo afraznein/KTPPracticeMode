@@ -1,0 +1,24 @@
+# KTP Tier 1 — Build-time smoke for KTPPracticeMode
+# Implementation in KTPInfrastructure/.github/workflows/smoke-callable.yml.
+
+name: Tier 1 Smoke
+
+on:
+  push:
+    branches: ['**']
+    paths-ignore: ['**.md', 'docs/**']
+  pull_request:
+    paths-ignore: ['**.md', 'docs/**']
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    uses: ${{ github.repository_owner }}/KTPInfrastructure/.github/workflows/smoke-callable.yml@main
+    with:
+      under_test_label: KTPPracticeMode
+      under_test_kind: amx_plugin
+      amxx_source: KTPPracticeMode.sma
+      artifact_container_path: /opt/hlds/dod/addons/ktpamx/plugins/KTPPracticeMode.amxx
+      assert_plugin: KTPPracticeMode
+    secrets:
+      ktp_checkout_token: ${{ secrets.KTP_CHECKOUT_TOKEN }}
