@@ -13,4 +13,3 @@ compiled/
 Thumbs.db
 
 # Claude Code context (contains production credentials)
-CLAUDE.md
