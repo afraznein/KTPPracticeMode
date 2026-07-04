@@ -1,10 +1,21 @@
 #!/bin/bash
 # KTPPracticeMode Plugin Compiler - WSL/Linux version
+#
+# Test-mode build (Tier 2 integration tests):
+#   KTP_TEST_MODE=1 bash compile.sh
+#   → output: compiled/test/KTPPracticeMode.amxx (NOT staged to production)
 
 set -e  # Exit on error
 
+# Empty string = production build; "1" = test-mode build.
+TEST_MODE="${KTP_TEST_MODE:-}"
+
 echo "========================================"
-echo "KTPPracticeMode Plugin Compiler (WSL)"
+if [ "$TEST_MODE" = "1" ]; then
+    echo "KTPPracticeMode Plugin Compiler (TEST-MODE)"
+else
+    echo "KTPPracticeMode Plugin Compiler (WSL)"
+fi
 echo "========================================"
 echo
 
@@ -23,7 +34,11 @@ else
     SCRIPT_DIR="/mnt/n/Nein_/KTP Git Projects/KTPPracticeMode"
 fi
 PLUGIN_NAME="KTPPracticeMode"
-OUTPUT_DIR="$SCRIPT_DIR/compiled"
+if [ "$TEST_MODE" = "1" ]; then
+    OUTPUT_DIR="$SCRIPT_DIR/compiled/test"
+else
+    OUTPUT_DIR="$SCRIPT_DIR/compiled"
+fi
 STAGE_DIR="/mnt/n/Nein_/KTP Git Projects/KTP DoD Server/serverfiles/dod/addons/ktpamx/plugins"
 
 TEMP_BUILD="/tmp/ktpbuild_practice"
@@ -91,9 +106,15 @@ echo "[INFO] build_info: SHA=${GIT_SHA}${GIT_DIRTY} BUILD_TIME=$BUILD_TIME"
 # Convert line endings and copy source
 sed 's/\r$//' "$SCRIPT_DIR/$PLUGIN_NAME.sma" > "$TEMP_BUILD/$PLUGIN_NAME.sma"
 
-# Compile
+# Compile. amxxpc accepts trailing positional NAME=VALUE args as injected
+# `#define`s; KTP_TEST_MODE=1 enables the test-mode block in the .sma.
 cd "$TEMP_BUILD"
-./amxxpc "$PLUGIN_NAME.sma" -i./include -o"$PLUGIN_NAME.amxx"
+if [ "$TEST_MODE" = "1" ]; then
+    echo "[INFO] Building with -DKTP_TEST_MODE — adds amx_ktp_prac_test_enable rcon + entry diagnostics"
+    ./amxxpc "$PLUGIN_NAME.sma" -i./include -o"$PLUGIN_NAME.amxx" KTP_TEST_MODE=1
+else
+    ./amxxpc "$PLUGIN_NAME.sma" -i./include -o"$PLUGIN_NAME.amxx"
+fi
 
 if [ $? -ne 0 ]; then
     echo
@@ -117,11 +138,14 @@ echo
 # Stage to Server
 # ============================================
 
-echo "[INFO] Staging to server..."
-if [ ! -d "$STAGE_DIR" ]; then
+if [ "$TEST_MODE" = "1" ]; then
+    echo "[INFO] Test-mode build — NOT staged to production serverfiles."
+    echo "       Stage manually to the Tier 2 runner tree."
+elif [ ! -d "$STAGE_DIR" ]; then
     echo "[WARN] Stage directory does not exist: $STAGE_DIR"
     echo "       Skipping staging."
 else
+    echo "[INFO] Staging to server..."
     cp "$OUTPUT_DIR/$PLUGIN_NAME.amxx" "$STAGE_DIR/$PLUGIN_NAME.amxx"
     echo "[OK] Staged: $STAGE_DIR/$PLUGIN_NAME.amxx"
 fi

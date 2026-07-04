@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.4.4] - 2026-07-04
+
+### Added
+- **Test-mode build variant (`KTP_TEST_MODE=1 bash compile.sh`)** — compiles a Tier 2 test build to `compiled/test/` (never staged to production) with two additions gated on `KTP_TEST_MODE`: an `amx_ktp_prac_test_enable <0|1>` rcon that forces the practice-mode flag without a connected player (flag only — no hostname/cvar/task side effects), and an entry-state diagnostic in `dod_grenade_explosion` (the gated reincarnation of the 1.4.1 line that 1.4.3 removed from production). Drives the new `tests/integration/test_practice_mode_grenade_refill.py` contract tests in KTPInfrastructure. Production binary carries none of it — same logic as 1.4.3 aside from the version string.
+
+---
+
 ## [1.4.3] - 2026-07-03
 
 ### Fixed

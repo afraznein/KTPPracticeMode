@@ -108,7 +108,7 @@
 native ktp_is_match_active();
 
 #define PLUGIN_NAME    "KTP Practice Mode"
-#define PLUGIN_VERSION "1.4.3"
+#define PLUGIN_VERSION "1.4.4"
 #define PLUGIN_AUTHOR  "Nein_"
 
 // Grenade weapon IDs
@@ -174,6 +174,15 @@ public plugin_init() {
     register_clcmd("say .nade", "cmd_grenade");
     register_clcmd("say_team .nade", "cmd_grenade");
 
+#if defined KTP_TEST_MODE
+    // TEST-MODE ONLY: force the practice-mode flag without a connected
+    // player (production enable is the .practice chat command). Sets ONLY
+    // g_bPracticeMode — no hostname/cvar/task side effects — so Tier 2 can
+    // exercise the dod_grenade_explosion refill gates in isolation.
+    register_concmd("amx_ktp_prac_test_enable", "cmd_test_prac_enable", -1,
+        "<0|1> — TEST-MODE ONLY: force the practice-mode flag");
+#endif
+
     // Check if practice mode was active before map change
     new pracState[8];
     get_localinfo("_ktp_prac", pracState, charsmax(pracState));
@@ -217,8 +226,24 @@ public task_restore_hostname_after_mapchange() {
     log_amx("[KTPPracticeMode] Hostname restored to: %s", g_szBaseHostname);
 }
 
+#if defined KTP_TEST_MODE
+public cmd_test_prac_enable() {
+    new buf[4];
+    read_argv(1, buf, charsmax(buf));
+    g_bPracticeMode = str_to_num(buf) != 0;
+    log_amx("[KTPPracticeMode] TEST: practice-mode flag forced to %d", g_bPracticeMode);
+    return PLUGIN_HANDLED;
+}
+#endif
+
 // Forward: Grenade exploded - give the grenade weapon back if in practice mode
 public dod_grenade_explosion(id, Float:pos[3], wpnid) {
+#if defined KTP_TEST_MODE
+    // Entry-state diagnostic (compiled out of production — the 1.4.3
+    // ungated version of this line fired every grenade in live matches).
+    log_amx("[KTPPracticeMode] TEST explosion_entry: id=%d wpnid=%d practice=%d connected=%d alive=%d",
+        id, wpnid, g_bPracticeMode, is_user_connected(id), is_user_alive(id));
+#endif
     if (!g_bPracticeMode)
         return;
 
