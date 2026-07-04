@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.4.3] - 2026-07-03
+
+### Fixed
+- **`dod_grenade_explosion` diagnostic logged every grenade in every real match** — the entry log sat *before* the practice-mode gate (its comment claimed "only during practice"), writing a line per explosion during live matches. The 2026-07-03 NYC frame-spike investigation caught these exact lines on stall frames (AMXX logging was synchronous game-thread disk I/O until KTPAMXX 2.7.19). Entry log removed; the refill-result log now fires only when a refill step actually fails.
+
 ## [1.4.2] - 2026-04-25
 
 ### Added

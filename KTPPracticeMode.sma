@@ -108,7 +108,7 @@
 native ktp_is_match_active();
 
 #define PLUGIN_NAME    "KTP Practice Mode"
-#define PLUGIN_VERSION "1.4.2"
+#define PLUGIN_VERSION "1.4.3"
 #define PLUGIN_AUTHOR  "Nein_"
 
 // Grenade weapon IDs
@@ -219,11 +219,6 @@ public task_restore_hostname_after_mapchange() {
 
 // Forward: Grenade exploded - give the grenade weapon back if in practice mode
 public dod_grenade_explosion(id, Float:pos[3], wpnid) {
-    // Diagnostic entry — fires on every explosion (low volume; only during practice)
-    log_amx("[KTPPracticeMode] dod_grenade_explosion entry: id=%d wpnid=%d practice=%d connected=%d alive=%d",
-        id, wpnid, g_bPracticeMode ? 1 : 0,
-        is_user_connected(id) ? 1 : 0, is_user_alive(id) ? 1 : 0);
-
     if (!g_bPracticeMode)
         return;
 
@@ -236,8 +231,11 @@ public dod_grenade_explosion(id, Float:pos[3], wpnid) {
     new ammoSlot = (wpnid == DODW_STICKGRENADE) ? AMMOSLOT_STICKGRENADE : AMMOSLOT_HANDGRENADE;
     new sendammox_ret = dodx_send_ammox(id, ammoSlot, 1);
 
-    log_amx("[KTPPracticeMode] refill result: id=%d wpnid=%d give=%d setammo=%d sendammox=%d ammoSlot=%d",
-        id, wpnid, give_ret, setammo_ret, sendammox_ret, ammoSlot);
+    // Log only when a refill step fails
+    if (!give_ret || !setammo_ret || !sendammox_ret) {
+        log_amx("[KTPPracticeMode] refill FAILED: id=%d wpnid=%d give=%d setammo=%d sendammox=%d ammoSlot=%d",
+            id, wpnid, give_ret, setammo_ret, sendammox_ret, ammoSlot);
+    }
 }
 
 public cmd_practice(id) {
