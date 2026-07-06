@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.4.5] - 2026-07-06
+
+Fix wave from the 2026-07-05 full-stack review (Part 2 #16 + #18 + minors).
+
+### Fixed
+- **British players got the US frag from `.grenade` (#16)** — the v1.4.0 "British team" fix branched on `team == 3`, which never occurs: DoD has only teams 1/2, and British play on the Allies side as classes 21–25. The branch was dead code, so British maps always handed `DODW_HANDGRENADE`. Now uses the class-range rule from KTPGrenadeLoadout (`class >= 21 && class <= 25` on Allies → Mills Bomb). The AmmoX slot mapping was already correct (Mills shares the hand-grenade ammo slot, matching the loadout plugin's proven behavior); auto-refill was never affected (it refills whatever `wpnid` exploded).
+- **`mp_timelimit` leaked out of practice mode on map-change exit (#18)** — the map-change cleanup path restored `sv_cheats` but not `mp_timelimit`, so the 99-minute practice value stayed in force on the new map until something else set it. Pawn globals persist across map changes in extension mode, so the saved pre-practice value is still valid in that cleanup block and is now restored (guarded on nonzero). Caveat: the global does not survive a full server restart mid-practice — the nightly restart re-execs configs, which covers that case.
+- **Hostname race in the first second after server boot** — `.practice` before the base-hostname cache fills (plugin_cfg + 1.0s) appended `" - PRACTICE"` to an empty string. `update_hostname()` now reads the cvar fresh when the cache is unpopulated.
+
+### Changed
+- **Map-change hostname restore reuses the shared cache-refresh task** instead of carrying its own duplicate read+strip of the hostname cvar.
+- **In-file header changelog synced** — was stale at 1.4.0; entries for 1.4.2–1.4.4 reconstructed.
+
 ## [1.4.4] - 2026-07-04
 
 ### Added

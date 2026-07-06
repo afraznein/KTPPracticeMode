@@ -1,9 +1,9 @@
-/* KTP Practice Mode v1.4.0
+/* KTP Practice Mode v1.4.5
  * Server practice mode with infinite grenades, extended timelimit, and noclip
  *
  * AUTHOR: Nein_
- * VERSION: 1.4.0
- * DATE: 2026-04-04
+ * VERSION: 1.4.5
+ * DATE: 2026-07-06
  *
  * ========== FEATURES ==========
  * - Infinite grenades (refill on explosion)
@@ -24,6 +24,28 @@
  * - KTPAMXX 2.6.6+ with DODX module (grenade natives, dod_grenade_explosion forward)
  *
  * ========== CHANGELOG ==========
+ *
+ * v1.4.5 (2026-07-06) - British grenade fix + timelimit leak + hostname hygiene
+ *   * FIXED: .grenade gave British players the US frag — the v1.4.0 "British
+ *     team" fix branched on team==3, which never occurs (DoD teams are 1/2;
+ *     British = Allies classes 21-25). Now uses the class-range rule from
+ *     KTPGrenadeLoadout.
+ *   * FIXED: mp_timelimit leaked (stayed 99) when practice mode ended via
+ *     map change — that cleanup path restored sv_cheats only.
+ *   * FIXED: .practice within ~1s of a fresh server boot appended
+ *     " - PRACTICE" to an empty hostname cache; update_hostname reads fresh
+ *     when the cache is unpopulated.
+ *   * CHANGED: map-change hostname restore reuses the shared cache-refresh
+ *     task instead of duplicating the read+strip.
+ *
+ * v1.4.4 (2026-07-04) - KTP_TEST_MODE build variant (Tier 2 refill contract
+ *   tests: amx_ktp_prac_test_enable rcon + gated entry diagnostic; production
+ *   binary logic identical to 1.4.3)
+ *
+ * v1.4.3 (2026-07-03) - Removed ungated dod_grenade_explosion debug log
+ *   (fired every grenade in live matches; refill log now failure-only)
+ *
+ * v1.4.2 (2026-04-25) - Adopted ktp_version_reporter shared include
  *
  * v1.4.1 (2026-04-20) - Grenade refill diagnostic logging
  *   + ADDED: log_amx in dod_grenade_explosion — entry state (id/wpnid/practice/
@@ -108,7 +130,7 @@
 native ktp_is_match_active();
 
 #define PLUGIN_NAME    "KTP Practice Mode"
-#define PLUGIN_VERSION "1.4.4"
+#define PLUGIN_VERSION "1.4.5"
 #define PLUGIN_AUTHOR  "Nein_"
 
 // Grenade weapon IDs
@@ -123,7 +145,7 @@ native ktp_is_match_active();
 // Practice mode state
 new bool:g_bPracticeMode = false;
 new g_szBaseHostname[128];
-new g_iPreviousTimelimit;
+new g_iPreviousTimelimit = -1;  // -1 = never saved; 0 is a legitimate saved value (no timelimit)
 
 // Noclip tracking
 new bool:g_bPlayerNoclip[33];
@@ -193,6 +215,17 @@ public plugin_init() {
         g_bPracticeMode = false;
         set_cvar_num("sv_cheats", 0);
 
+        // Restore mp_timelimit too — this path restored sv_cheats but left
+        // the 99-minute practice timelimit in force on the new map. Pawn
+        // globals persist across map changes in extension mode, so the
+        // saved value is still valid here (it does NOT survive a full
+        // server restart, but the nightly restart re-execs configs anyway).
+        // -1 sentinel = never saved; 0 is a legitimate value to restore.
+        if (g_iPreviousTimelimit >= 0) {
+            set_cvar_num("mp_timelimit", g_iPreviousTimelimit);
+            log_amx("[KTPPracticeMode] mp_timelimit restored to %d (map-change exit)", g_iPreviousTimelimit);
+        }
+
         // Schedule hostname restoration AFTER plugin_cfg + server configs have run (1.5s)
         // This ensures g_szBaseHostname is populated correctly before we restore
         set_task(1.5, "task_restore_hostname_after_mapchange");
@@ -217,9 +250,9 @@ public task_refresh_hostname_after_config() {
 }
 
 public task_restore_hostname_after_mapchange() {
-    // Read hostname fresh (configs have run by now at 1.5s delay)
-    get_cvar_string("hostname", g_szBaseHostname, charsmax(g_szBaseHostname));
-    strip_hostname_suffixes(g_szBaseHostname);
+    // Reuse the shared cache refresh (configs have run by the 1.5s delay),
+    // then push the cleaned name — this used to duplicate the read+strip.
+    task_refresh_hostname_after_config();
 
     server_cmd("hostname ^"%s^"", g_szBaseHostname);
     server_exec();
@@ -363,16 +396,18 @@ public cmd_grenade(id) {
         return PLUGIN_HANDLED;
     }
 
-    // Determine grenade type based on player team
+    // Determine grenade type. DoD has only teams 1/2 — British play on the
+    // Allies side as classes 21-25 (the old team==3 branch was dead code, so
+    // British always got the US frag). Same class-range rule as
+    // KTPGrenadeLoadout.
     new team = get_user_team(id);
     new wpnid;
 
-    if (team == 1) {
-        wpnid = DODW_HANDGRENADE;
-    } else if (team == 2) {
+    if (team == 2) {
         wpnid = DODW_STICKGRENADE;
-    } else if (team == 3) {
-        wpnid = DODW_MILLS_BOMB;  // British team
+    } else if (team == 1) {
+        new class = dod_get_user_class(id);
+        wpnid = (class >= 21 && class <= 25) ? DODW_MILLS_BOMB : DODW_HANDGRENADE;
     } else {
         client_print(id, print_chat, "[KTP] You must be on a team to get a grenade.");
         return PLUGIN_HANDLED;
@@ -433,8 +468,10 @@ exit_practice_mode(id) {
     // Clear HUD for all players
     ClearSyncHud(0, g_hudSync);
 
-    // Restore cvars
-    set_cvar_num("mp_timelimit", g_iPreviousTimelimit);
+    // Restore cvars (-1 sentinel = never saved; symmetric with the
+    // map-change exit path)
+    if (g_iPreviousTimelimit >= 0)
+        set_cvar_num("mp_timelimit", g_iPreviousTimelimit);
     set_cvar_num("sv_cheats", 0);
 
     // Reset all player noclip states
@@ -506,6 +543,14 @@ public client_disconnected(id) {
 // New connections see updated hostname immediately
 // Existing players see it on map change/reconnect
 update_hostname() {
+    // The base-hostname cache fills at plugin_cfg+1.0s — on a fresh server
+    // boot a .practice inside that window would append " - PRACTICE" to an
+    // empty base. Read fresh instead of trusting an unpopulated cache.
+    if (!g_szBaseHostname[0]) {
+        get_cvar_string("hostname", g_szBaseHostname, charsmax(g_szBaseHostname));
+        strip_hostname_suffixes(g_szBaseHostname);
+    }
+
     new hostname[128];
 
     if (g_bPracticeMode) {
