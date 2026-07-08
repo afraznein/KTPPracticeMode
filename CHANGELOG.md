@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.4.6] - 2026-07-08
+
+Fix wave from the 2026-07-06 Wave-2 code assessment (KTPPracticeMode section).
+
+### Fixed
+- **Plugin failed to load without KTPMatchHandler** — `ktp_is_match_active()` was a bare native, so a server running KTPPracticeMode without KTPMatchHandler got a load failure, while README/CLAUDE.md called the dependency "optional". A native filter (`plugin_natives` + `set_native_filter`) now lets the plugin load standalone: when the native is unresolved, match detection treats the server as match-free (there is no match handler, so there is no match) and everything else works normally. Logged once per map load: `KTPMatchHandler not loaded - match detection off`. The docs are now true.
+- **Noclip tracking flags survived map changes** — the map-change cleanup path never cleared `g_bPlayerNoclip[]` (Pawn globals persist across map changes in extension mode), so a slot that had noclip on when the map changed started the next practice session with an inverted toggle: the first `.noclip` set the flag false while enabling nothing, the second claimed ENABLED while the engine state said otherwise. The cleanup block now clears the array; the engine movetype needs nothing — it died with the old map.
+- **Exit sweep missed console-`noclip` users** — `sv_cheats` is 1 during practice, so players can enable noclip via the console, invisible to `g_bPlayerNoclip[]`. The exit sweep now resets noclip for every *alive* player instead of only tracked ones — safe as a blanket because setting an alive walking player to `MOVETYPE_WALK` is a no-op, and gated on alive because forcing WALK on a dead/observing player would be wrong (verified against the DODX native: it writes `movetype` unconditionally).
+
+### Changed
+- **Auto-exit no longer removes its own repeating task from inside its own callback** — `task_check_players` → `exit_practice_mode` → `remove_task(TASK_CHECK_PLAYERS)` was a self-removal, the exact trigger for the KTPAMXX CTask `m_ActiveCount` double-decrement (silently stalls ALL `set_task` timers). The platform fix shipped in KTPAMXX 2.7.20 fleet-wide, so this is belt-and-suspenders: the removal is now deferred 0.1s to a one-shot task, guarded so a `.practice` re-enable inside the window doesn't kill the fresh monitor task.
+
+### Accepted limitations (documented, not fixed)
+- **Match-start auto-exit briefly clobbers the PENDING hostname suffix** — when a match starts during practice, the exit path's hostname restore can overwrite KTPMatchHandler's `- PENDING` suffix for up to ~5s until MatchHandler's next hostname update self-heals it. Cosmetic and transient; coordinating hostname ownership between the two plugins would be disproportionate.
+- **A thrown-back enemy grenade refills as the enemy's type** — the explosion refill hands back whatever `wpnid` exploded, so picking up and returning an enemy grenade "refills" the enemy's grenade type. Cosmetic; the feared `dodx_give_grenade` invalid-type abort is unreachable from this path (input domain is only the three real grenade ids), and inferring the thrower's "native" type would be a redesign for no gameplay gain.
+
 ## [1.4.5] - 2026-07-06
 
 Fix wave from the 2026-07-05 full-stack review (Part 2 #16 + #18 + minors).

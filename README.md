@@ -1,6 +1,6 @@
 # KTP Practice Mode
 
-**Version 1.4.5** - Practice mode plugin for Day of Defeat servers
+**Version 1.4.6** - Practice mode plugin for Day of Defeat servers
 
 An AMX Mod X plugin that provides a practice mode with infinite grenades, extended timelimit, noclip, and automatic cleanup when the server empties or a match starts.
 
@@ -28,7 +28,22 @@ An AMX Mod X plugin that provides a practice mode with infinite grenades, extend
   - `dod_grenade_explosion` forward
   - `dodx_give_grenade()` native
   - `dodx_set_user_noclip()` native
-- **KTPMatchHandler** (optional) - For `ktp_is_match_active()` native
+
+### Optional: KTPMatchHandler
+
+Match detection uses the `ktp_is_match_active()` native from KTPMatchHandler.
+Since 1.4.6 the dependency is genuinely optional â€” a native filter lets the
+plugin load without it:
+
+- **With KTPMatchHandler:** practice mode is blocked while a match is live,
+  pending, or in pre-start, and auto-exits when a match starts.
+- **Without KTPMatchHandler:** the plugin loads normally, logs
+  `KTPMatchHandler not loaded - match detection off` once per map load, and treats
+  the server as match-free (no match handler means no matches). All practice
+  features work â€” this is the standalone-server configuration.
+
+(Before 1.4.6 the native was a hard link-time requirement and the plugin
+failed to load without KTPMatchHandler.)
 
 ---
 

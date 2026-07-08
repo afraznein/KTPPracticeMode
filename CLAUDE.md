@@ -40,11 +40,14 @@ This will:
   - `dod_grenade_explosion` forward
   - `dodx_give_grenade()` native
   - `dodx_set_user_noclip()` native
-- **KTPMatchHandler** (optional) - For `ktp_is_match_active()` native
+- **KTPMatchHandler** (optional) - For `ktp_is_match_active()` native. Since
+  1.4.6 a native filter makes this truly optional: without KTPMatchHandler the
+  plugin loads fine, logs once per map load, and treats the server as match-free.
 
 ## Match State Detection
 Uses `ktp_is_match_active()` native from KTPMatchHandler to detect active matches.
 Practice mode is blocked when a match is in progress (including pre-start phase).
+Without KTPMatchHandler loaded, detection is off and practice mode is always allowed.
 
 ## Server Deployment
 
