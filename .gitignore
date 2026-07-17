@@ -13,3 +13,6 @@ compiled/
 Thumbs.db
 
 # Claude Code context (contains production credentials)
+
+# machine-local Claude permissions (skills ARE published)
+.claude/settings.local.json

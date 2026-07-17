@@ -1,5 +1,7 @@
 # KTPPracticeMode - Claude Code Context
 
+**REQUIRED: Before writing or modifying any code in this repo, invoke the `plugin-dev` skill** (`.claude/skills/plugin-dev/SKILL.md`). It carries the optional-dependency contract, the auto-exit/grenade-native traps, and the deploy workflow; do not edit the .sma without it loaded.
+
 ## Compile Command
 To compile this plugin, use:
 ```bash
