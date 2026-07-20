@@ -18,21 +18,30 @@ An AMX Mod X plugin that provides a practice mode with infinite grenades, extend
 - **Dynamic hostname** - Appends " - PRACTICE" to server name
 - **Match protection** - Blocked when KTPMatchHandler match is active (including pre-start)
 - **Map change handling** - Properly cleans up and announces on map change
-- **Version display** - Shows plugin version to players on connect
 
 ---
 
 ## Requirements
 
-- **KTPAMXX 2.6.7+** with DODX module:
+- **KTPAMXX 2.7.4+** with DODX module:
   - `dod_grenade_explosion` forward
   - `dodx_give_grenade()` native
+  - `dodx_set_grenade_ammo()` native
+  - `dodx_send_ammox()` native
   - `dodx_set_user_noclip()` native
+  - `dod_get_user_class()` native
+
+  All six are hard-linked — only `ktp_is_match_active()` sits behind the native
+  filter. A DODX build missing any of them is a load failure, not a degraded mode.
+
+  2.7.4 is a hard floor, not a recommendation: earlier builds miss the DODX
+  fallback init for the first map load, so in extension mode `CPlayer` is
+  uninitialized and **`.noclip` silently does nothing** on the first map.
 
 ### Optional: KTPMatchHandler
 
 Match detection uses the `ktp_is_match_active()` native from KTPMatchHandler.
-Since 1.4.6 the dependency is genuinely optional â€” a native filter lets the
+Since 1.4.6 the dependency is genuinely optional — a native filter lets the
 plugin load without it:
 
 - **With KTPMatchHandler:** practice mode is blocked while a match is live,
@@ -40,7 +49,7 @@ plugin load without it:
 - **Without KTPMatchHandler:** the plugin loads normally, logs
   `KTPMatchHandler not loaded - match detection off` once per map load, and treats
   the server as match-free (no match handler means no matches). All practice
-  features work â€” this is the standalone-server configuration.
+  features work — this is the standalone-server configuration.
 
 (Before 1.4.6 the native was a hard link-time requirement and the plugin
 failed to load without KTPMatchHandler.)
@@ -51,12 +60,22 @@ failed to load without KTPMatchHandler.)
 
 1. **Compile** the plugin:
    ```bash
-   amxxpc KTPPracticeMode.sma -oKTPPracticeMode.amxx
+   bash compile.sh
+   # test build (Tier 2 only, never staged to production):
+   # KTP_TEST_MODE=1 bash compile.sh
    ```
 
+   Use `compile.sh`, not a bare `amxxpc` invocation — the script generates
+   `build_info.inc` (git short SHA + `-dirty` + UTC build time) before
+   compiling. Skip it and `KTP_BUILD_SHA` falls back to `"unknown"`, so
+   `amx_ktp_versions` can no longer identify what is deployed.
+
 2. **Install** to your server:
-   - KTPAMXX: `addons/ktpamx/plugins/KTPPracticeMode.amxx`
-   - AMX Mod X: `addons/amxmodx/plugins/KTPPracticeMode.amxx`
+   - `addons/ktpamx/plugins/KTPPracticeMode.amxx`
+
+   KTPAMXX only. This plugin includes `ktp_version_reporter` and calls
+   KTP-specific DODX natives (`dodx_give_grenade`, `dodx_set_user_noclip`) that
+   stock AMX Mod X does not provide — it will not load there.
 
 3. **Add to** `plugins.ini`:
    ```
@@ -72,9 +91,13 @@ failed to load without KTPMatchHandler.)
 | Command | Description |
 |---------|-------------|
 | `.practice` / `.prac` | Enter practice mode (anyone, when no match active) |
-| `.endpractice` / `.endprac` | Exit practice mode |
+| `.endpractice` / `.endprac` | Exit practice mode (anyone — practice mode is a server-wide toggle) |
 | `.noclip` / `.nc` | Toggle noclip (only during practice mode) |
 | `.grenade` / `.nade` | Get a grenade (only during practice mode) |
+
+None of the four carry an admin flag. Separately, the plugin enrols in the
+fleet-wide `amx_ktp_versions` rcon (ADMIN_RCON) via the shared
+`ktp_version_reporter` include — that command is not owned by this plugin.
 
 ---
 
@@ -94,7 +117,9 @@ failed to load without KTPMatchHandler.)
 - Works for all grenade types (hand, stick, Mills bomb)
 
 ### Grenade Spawn
-- `.grenade` command gives team-appropriate grenade
+- `.grenade` command gives team-appropriate grenade — Axis get the stick
+  grenade, Allies the hand grenade, except British (Allies classes 21-25) who
+  get the Mills Bomb
 - Useful for classes without default grenades (sniper, MG, etc.)
 
 ### Noclip
@@ -116,7 +141,7 @@ failed to load without KTPMatchHandler.)
 ## Technical Notes
 
 - Practice mode state tracked via `g_bPracticeMode` global
-- Base hostname cached at plugin init, stripping any existing suffixes
+- Base hostname cached 1s after `plugin_cfg` (server configs run later), stripping any existing suffixes; read fresh if the cache is still empty
 - Player noclip states tracked in `g_bPlayerNoclip[33]` array
 - Empty server check excludes bots and HLTV
 
@@ -130,7 +155,7 @@ See [CHANGELOG.md](CHANGELOG.md) for version history.
 
 ## License
 
-GPL-2.0 - See [LICENSE](LICENSE) file for details.
+GPL-2.0
 
 ---
 

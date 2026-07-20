@@ -110,7 +110,10 @@ out to the scratch dir over running tools "in place".
    (outputs `compiled/`, auto-stages to the KTP DoD Server test tree).
 3. **Test-mode build** for the Tier-2 grenade-refill contract tests:
    `KTP_TEST_MODE=1 bash compile.sh` → `compiled/test/` (adds
-   `amx_ktp_prac_test_enable` rcon + gated entry diagnostics; production
+   `amx_ktp_prac_test_enable` — a test-build console command registered at
+   level `-1` with no `cmd_access` check, so any connected client can call it
+   in a test build; never stage one to production — plus gated entry
+   diagnostics; production
    binary is byte-identical without the flag). This variant is dormant by
    design — it exists for the Tier-2 runner, not for fleet deploy.
 4. **Review**: `ktp-code-review` agent before any fleet stage.

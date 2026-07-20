@@ -38,10 +38,15 @@ This will:
 - **Map change handling**: Properly cleans up and announces on new map
 
 ## Dependencies
-- **KTPAMXX 2.6.7+** with DODX module:
+- **KTPAMXX 2.7.4+** with DODX module (2.7.4 is a hard floor — below it, DODX
+  `CPlayer` is uninitialized on the first map load in extension mode and
+  `.noclip` silently does nothing):
   - `dod_grenade_explosion` forward
   - `dodx_give_grenade()` native
+  - `dodx_set_grenade_ammo()` native
+  - `dodx_send_ammox()` native
   - `dodx_set_user_noclip()` native
+  - `dod_get_user_class()` native
 - **KTPMatchHandler** (optional) - For `ktp_is_match_active()` native. Since
   1.4.6 a native filter makes this truly optional: without KTPMatchHandler the
   plugin loads fine, logs once per map load, and treats the server as match-free.
@@ -60,4 +65,6 @@ Deploy compiled plugin to production servers using Python/Paramiko.
 See `N:\Nein_\KTP Git Projects\CLAUDE.md` for paramiko SSH documentation.
 
 ## Key Files to Update on Version Bump
-1. `KTPPracticeMode.sma` - `#define PLUGIN_VERSION`
+1. `KTPPracticeMode.sma` - `#define PLUGIN_VERSION` (and the in-file header changelog)
+2. `CHANGELOG.md` - Add new version section
+3. `README.md` - Update version in header

@@ -6,6 +6,72 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased]
+
+### Documentation
+
+**Minimum KTPAMXX version was stated three different ways, and the README picked
+a low one.** README said 2.6.7+, the source header said 2.6.6+, and a v1.4.0 note
+in the same header said "Requires KTPAMXX 2.7.4+ (DODX fallback init for first
+map load)". 2.7.4 is the real floor — below it, DODX `CPlayer` is uninitialized
+on the first map in extension mode and **`.noclip` silently does nothing**, which
+is precisely the bug 2.7.4 fixed. README and source header both reconciled to
+2.7.4+, with the consequence spelled out.
+
+Install step 2 also offered `addons/amxmodx/plugins/` as an alternative tree.
+Removed — this plugin includes `ktp_version_reporter` and calls KTP-specific DODX
+natives, so it cannot load under stock AMX Mod X.
+
+**README listed a "Version display" feature removed back in 1.3.2.** There is no
+`client_putinserver` and no version-display task anywhere in the source; an
+operator reading the feature list would have chased a phantom regression when
+players weren't told the plugin version on connect. Line deleted.
+
+**Required-natives list was missing half of what the plugin hard-calls.** README
+named three DODX symbols; the plugin also calls `dodx_set_grenade_ammo()`,
+`dodx_send_ammox()`, and `dod_get_user_class()`. None sit behind the native
+filter — only `ktp_is_match_active()` does — so a DODX build missing any of them
+is a load failure, not a degraded mode. All six now listed, in README and
+`CLAUDE.md`. `CLAUDE.md` also still carried the old 2.6.7+ floor; reconciled to
+2.7.4+.
+
+**Install instructions bypassed `compile.sh`.** The README's bare `amxxpc` line
+skips `build_info.inc` generation, leaving `KTP_BUILD_SHA` at its `"unknown"`
+fallback — so `amx_ktp_versions` can no longer say what is deployed. Replaced
+with `bash compile.sh` and the reason.
+
+**`amx_ktp_prac_test_enable` was called an "rcon".** It is registered at level
+`-1` with no `cmd_access` check in the handler, and AMXX does not enforce
+`register_concmd` flags at client-command dispatch — so in a `KTP_TEST_MODE`
+build any connected client can toggle the practice flag from console. Blast
+radius is small (test builds are never staged to production), but the permission
+claim was wrong. Corrected in `compile.sh` and the repo skill; the dated 1.4.4
+entries are left as shipped history.
+
+**Other doc corrections:**
+- Base hostname is cached 1s after `plugin_cfg`, not "at plugin init" — the
+  timing is the subject of two shipped fixes (1.1.3 and the 1.4.5 boot race).
+- `.endpractice` noted as unrestricted, matching the annotation `.practice`
+  already carried. Any connected player can end the session for everyone.
+- `.grenade`'s British/Mills Bomb class-range rule (Allies classes 21-25) added
+  to How It Works — a user-visible 1.4.5 fix the section never absorbed.
+- Dropped the broken `LICENSE` relative link (no such file in the repo).
+- Removed the release-link footer: it pointed at ten tags that do not exist —
+  `git tag` is empty — so every link 404'd on a public repo.
+- `.gitignore` carried a section header claiming the Claude context is ignored
+  "because it contains production credentials", with no pattern beneath it.
+  `CLAUDE.md` is deliberately tracked and public. The comment asserted a
+  protection that is not in force, which is how a credential gets published by
+  someone who trusts it. Replaced with an explicit keep-it-credential-free note.
+- Fixed double-encoded em dashes (`â€"`) throughout the README and the source
+  header — they render as mojibake on GitHub.
+
+Note for a future release: the 1.4.5 entry below describes the `mp_timelimit`
+restore guard as "guarded on nonzero". The code guards on a `-1` sentinel
+(`g_iPreviousTimelimit >= 0`), so a saved value of `0` restores correctly —
+which "nonzero" would refuse to do. The dated entry is left alone; the current
+behavior is recorded here.
+
 ## [1.4.6] - 2026-07-08
 
 Fix wave from the 2026-07-06 Wave-2 code assessment (KTPPracticeMode section).
@@ -209,14 +275,3 @@ Fix wave from the 2026-07-05 full-stack review (Part 2 #16 + #18 + minors).
 - Match state detection via `_ktp_mid` localinfo
 
 ---
-
-[1.3.0]: https://github.com/afraznein/KTPPracticeMode/releases/tag/v1.3.0
-[1.1.3]: https://github.com/afraznein/KTPPracticeMode/releases/tag/v1.1.3
-[1.1.2]: https://github.com/afraznein/KTPPracticeMode/releases/tag/v1.1.2
-[1.1.0]: https://github.com/afraznein/KTPPracticeMode/releases/tag/v1.1.0
-[1.0.9]: https://github.com/afraznein/KTPPracticeMode/releases/tag/v1.0.9
-[1.0.8]: https://github.com/afraznein/KTPPracticeMode/releases/tag/v1.0.8
-[1.0.4]: https://github.com/afraznein/KTPPracticeMode/releases/tag/v1.0.4
-[1.0.2]: https://github.com/afraznein/KTPPracticeMode/releases/tag/v1.0.2
-[1.0.1]: https://github.com/afraznein/KTPPracticeMode/releases/tag/v1.0.1
-[1.0.0]: https://github.com/afraznein/KTPPracticeMode/releases/tag/v1.0.0

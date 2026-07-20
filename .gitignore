@@ -12,7 +12,8 @@ compiled/
 .DS_Store
 Thumbs.db
 
-# Claude Code context (contains production credentials)
+# CLAUDE.md is intentionally published — keep it credential-free.
+# Anything sensitive belongs in the root CLAUDE.md, which is in no public repo.
 
 # machine-local Claude permissions (skills ARE published)
 .claude/settings.local.json
