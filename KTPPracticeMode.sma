@@ -21,7 +21,8 @@
  * - .grenade / .nade - Get a grenade (only during practice mode)
  *
  * ========== REQUIREMENTS ==========
- * - KTPAMXX 2.6.6+ with DODX module (grenade natives, dod_grenade_explosion forward)
+ * - KTPAMXX 2.7.4+ with DODX module (grenade natives, dod_grenade_explosion
+ *   forward). 2.7.4 is the floor — earlier builds break .noclip on first map load.
  * - KTPMatchHandler (optional) - match detection; without it the plugin loads
  *   fine and treats "match active" as false (standalone practice server)
  *
@@ -40,12 +41,12 @@
  *     double-decrement insurance; the platform bug is fixed in 2.7.20).
  *
  * v1.4.5 (2026-07-06) - British grenade fix + timelimit leak + hostname hygiene
- *   * FIXED: .grenade gave British players the US frag â€” the v1.4.0 "British
+ *   * FIXED: .grenade gave British players the US frag — the v1.4.0 "British
  *     team" fix branched on team==3, which never occurs (DoD teams are 1/2;
  *     British = Allies classes 21-25). Now uses the class-range rule from
  *     KTPGrenadeLoadout.
  *   * FIXED: mp_timelimit leaked (stayed 99) when practice mode ended via
- *     map change â€” that cleanup path restored sv_cheats only.
+ *     map change — that cleanup path restored sv_cheats only.
  *   * FIXED: .practice within ~1s of a fresh server boot appended
  *     " - PRACTICE" to an empty hostname cache; update_hostname reads fresh
  *     when the cache is unpopulated.
@@ -62,15 +63,15 @@
  * v1.4.2 (2026-04-25) - Adopted ktp_version_reporter shared include
  *
  * v1.4.1 (2026-04-20) - Grenade refill diagnostic logging
- *   + ADDED: log_amx in dod_grenade_explosion â€” entry state (id/wpnid/practice/
+ *   + ADDED: log_amx in dod_grenade_explosion — entry state (id/wpnid/practice/
  *     connected/alive) + native return values (give/setammo/sendammox/ammoSlot).
- *   + ADDED: log_amx in cmd_grenade â€” parity diagnostics.
+ *   + ADDED: log_amx in cmd_grenade — parity diagnostics.
  *   * Purpose: narrow the 2026-04-17 ATL2 regression where auto-refill stopped
  *     working post map-change. Forward vs natives pinpointed from log output.
- *   * Low volume â€” only fires during practice mode. Kept permanent, not gated.
+ *   * Low volume — only fires during practice mode. Kept permanent, not gated.
  *
  * v1.4.0 (2026-04-04) - Fix .grenade, explosion refill, and .noclip
- *   * FIXED: .grenade and explosion refill broken â€” game removes weapon entity
+ *   * FIXED: .grenade and explosion refill broken — game removes weapon entity
  *     when last grenade is thrown. Now always calls dodx_give_grenade to recreate
  *     the weapon slot, then dodx_set_grenade_ammo + dodx_send_ammox to set ammo.
  *   * FIXED: .noclip broken due to DODX CPlayer not initialized in extension mode.
@@ -192,7 +193,7 @@ public plugin_natives() {
 // Lets the plugin load without KTPMatchHandler (standalone practice server).
 // trap 0 = load-time resolution failure; PLUGIN_HANDLED loads anyway.
 // trap 1 = a filtered native was actually called; PLUGIN_HANDLED makes it
-// return 0 â€” same "no match active" answer the wrapper gives, so a stray
+// return 0 — same "no match active" answer the wrapper gives, so a stray
 // direct call can't throw.
 public native_filter(const name[], index, trap) {
     if (equal(name, "ktp_is_match_active")) {
@@ -203,7 +204,7 @@ public native_filter(const name[], index, trap) {
     return PLUGIN_CONTINUE;
 }
 
-// All match checks go through here â€” never call the native when it's absent
+// All match checks go through here — never call the native when it's absent
 is_match_active() {
     return g_bMatchHandlerPresent ? ktp_is_match_active() : 0;
 }
@@ -245,10 +246,10 @@ public plugin_init() {
 #if defined KTP_TEST_MODE
     // TEST-MODE ONLY: force the practice-mode flag without a connected
     // player (production enable is the .practice chat command). Sets ONLY
-    // g_bPracticeMode â€” no hostname/cvar/task side effects â€” so Tier 2 can
+    // g_bPracticeMode — no hostname/cvar/task side effects — so Tier 2 can
     // exercise the dod_grenade_explosion refill gates in isolation.
-    register_concmd("amx_ktp_prac_test_enable", "cmd_test_prac_enable", -1,
-        "<0|1> â€” TEST-MODE ONLY: force the practice-mode flag");
+    register_concmd("amx_ktp_prac_test_enable", "cmd_test_prac_enable", ADMIN_RCON,
+        "<0|1> — TEST-MODE ONLY: force the practice-mode flag");
 #endif
 
     // Check if practice mode was active before map change
@@ -261,7 +262,7 @@ public plugin_init() {
         g_bPracticeMode = false;
         set_cvar_num("sv_cheats", 0);
 
-        // Noclip tracking flags persist across map changes too â€” a stale
+        // Noclip tracking flags persist across map changes too — a stale
         // flag makes the next .noclip for that slot toggle inverted. The
         // engine movetype is already gone with the old map, so clearing
         // the array is the whole fix.
@@ -269,7 +270,7 @@ public plugin_init() {
             g_bPlayerNoclip[i] = false;
         }
 
-        // Restore mp_timelimit too â€” this path restored sv_cheats but left
+        // Restore mp_timelimit too — this path restored sv_cheats but left
         // the 99-minute practice timelimit in force on the new map. Pawn
         // globals persist across map changes in extension mode, so the
         // saved value is still valid here (it does NOT survive a full
@@ -305,7 +306,7 @@ public task_refresh_hostname_after_config() {
 
 public task_restore_hostname_after_mapchange() {
     // Reuse the shared cache refresh (configs have run by the 1.5s delay),
-    // then push the cleaned name â€” this used to duplicate the read+strip.
+    // then push the cleaned name — this used to duplicate the read+strip.
     task_refresh_hostname_after_config();
 
     server_cmd("hostname ^"%s^"", g_szBaseHostname);
@@ -314,7 +315,12 @@ public task_restore_hostname_after_mapchange() {
 }
 
 #if defined KTP_TEST_MODE
-public cmd_test_prac_enable() {
+public cmd_test_prac_enable(id, level, cid) {
+    // register_concmd's level is not enforced at client dispatch — without this
+    // guard any connected client could toggle the flag from console.
+    if (!cmd_access(id, level, cid, 2))
+        return PLUGIN_HANDLED;
+
     new buf[4];
     read_argv(1, buf, charsmax(buf));
     g_bPracticeMode = str_to_num(buf) != 0;
@@ -326,7 +332,7 @@ public cmd_test_prac_enable() {
 // Forward: Grenade exploded - give the grenade weapon back if in practice mode
 public dod_grenade_explosion(id, Float:pos[3], wpnid) {
 #if defined KTP_TEST_MODE
-    // Entry-state diagnostic (compiled out of production â€” the 1.4.3
+    // Entry-state diagnostic (compiled out of production — the 1.4.3
     // ungated version of this line fired every grenade in live matches).
     log_amx("[KTPPracticeMode] TEST explosion_entry: id=%d wpnid=%d practice=%d connected=%d alive=%d",
         id, wpnid, g_bPracticeMode, is_user_connected(id), is_user_alive(id));
@@ -450,7 +456,7 @@ public cmd_grenade(id) {
         return PLUGIN_HANDLED;
     }
 
-    // Determine grenade type. DoD has only teams 1/2 â€” British play on the
+    // Determine grenade type. DoD has only teams 1/2 — British play on the
     // Allies side as classes 21-25 (the old team==3 branch was dead code, so
     // British always got the US frag). Same class-range rule as
     // KTPGrenadeLoadout.
@@ -515,7 +521,7 @@ exit_practice_mode(id) {
     set_localinfo("_ktp_prac", "");
 
     // Stop practice mode tasks. TASK_CHECK_PLAYERS may be the caller (auto-exit
-    // runs inside it) â€” removing a repeating task from its own callback trips
+    // runs inside it) — removing a repeating task from its own callback trips
     // the KTPAMXX CTask double-decrement (fixed in 2.7.20; deferring the
     // removal 0.1s is cheap insurance). The other two are never the caller.
     remove_task(TASK_STOP_PLAYER_CHECK);
@@ -532,10 +538,10 @@ exit_practice_mode(id) {
         set_cvar_num("mp_timelimit", g_iPreviousTimelimit);
     set_cvar_num("sv_cheats", 0);
 
-    // Reset noclip for every alive player, not just tracked ones â€” sv_cheats
+    // Reset noclip for every alive player, not just tracked ones — sv_cheats
     // is 1 during practice, so console `noclip` users exist outside
     // g_bPlayerNoclip[]. Safe as a blanket: setting an alive walker back to
-    // MOVETYPE_WALK is a no-op. Alive-only â€” forcing WALK on a dead or
+    // MOVETYPE_WALK is a no-op. Alive-only — forcing WALK on a dead or
     // observing player would be wrong.
     for (new i = 1; i <= get_maxplayers(); i++) {
         if (is_user_connected(i) && is_user_alive(i)) {
@@ -591,7 +597,7 @@ public task_chat_reminder() {
     client_print(0, print_chat, "[KTP] Practice mode active. Commands: .grenade, .noclip, .endpractice");
 }
 
-// Reset noclip when player dies â€” must clear BOTH engine state and tracking flag
+// Reset noclip when player dies — must clear BOTH engine state and tracking flag
 // so exit_practice_mode doesn't skip this player
 public client_death(killer, victim, wpnindex, hitplace, TK) {
     if (g_bPlayerNoclip[victim]) {
@@ -614,7 +620,7 @@ public client_disconnected(id) {
 // New connections see updated hostname immediately
 // Existing players see it on map change/reconnect
 update_hostname() {
-    // The base-hostname cache fills at plugin_cfg+1.0s â€” on a fresh server
+    // The base-hostname cache fills at plugin_cfg+1.0s — on a fresh server
     // boot a .practice inside that window would append " - PRACTICE" to an
     // empty base. Read fresh instead of trusting an unpopulated cache.
     if (!g_szBaseHostname[0]) {

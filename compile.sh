@@ -110,7 +110,7 @@ sed 's/\r$//' "$SCRIPT_DIR/$PLUGIN_NAME.sma" > "$TEMP_BUILD/$PLUGIN_NAME.sma"
 # `#define`s; KTP_TEST_MODE=1 enables the test-mode block in the .sma.
 cd "$TEMP_BUILD"
 if [ "$TEST_MODE" = "1" ]; then
-    echo "[INFO] Building with -DKTP_TEST_MODE — adds amx_ktp_prac_test_enable rcon + entry diagnostics"
+    echo "[INFO] Building with -DKTP_TEST_MODE — adds amx_ktp_prac_test_enable (ADMIN_RCON, cmd_access-gated) + entry diagnostics"
     ./amxxpc "$PLUGIN_NAME.sma" -i./include -o"$PLUGIN_NAME.amxx" KTP_TEST_MODE=1
 else
     ./amxxpc "$PLUGIN_NAME.sma" -i./include -o"$PLUGIN_NAME.amxx"
