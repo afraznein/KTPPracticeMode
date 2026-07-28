@@ -10,6 +10,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Documentation
 
+- **Licence is now actually shipped, and it is GPL-3.0, not GPL-2.0.** The repo is
+  public and the README asserted GPL-2.0 with no licence text behind it — a grant
+  nobody could read. GPL-2.0 was also wrong: every other KTP plugin that ships a
+  licence is GPL-3, and this plugin builds against GPL-3 KTPAMXX headers.
+  `LICENSE` (GPL-3.0) added and the README now links it.
+
 **Minimum KTPAMXX version was stated three different ways, and the README picked
 a low one.** README said 2.6.7+, the source header said 2.6.6+, and a v1.4.0 note
 in the same header said "Requires KTPAMXX 2.7.4+ (DODX fallback init for first
