@@ -1,8 +1,8 @@
-/* KTP Practice Mode v1.4.6
+/* KTP Practice Mode v1.4.7
  * Server practice mode with infinite grenades, extended timelimit, and noclip
  *
  * AUTHOR: Nein_
- * VERSION: 1.4.6
+ * VERSION: 1.4.7
  * DATE: 2026-07-08
  *
  * ========== FEATURES ==========
@@ -27,6 +27,14 @@
  *   fine and treats "match active" as false (standalone practice server)
  *
  * ========== CHANGELOG ==========
+ *
+ * v1.4.7 (2026-08-09) - Correct auto-exit reason + hostname suffix parity
+ *     * FIXED: match-triggered auto-exit announced "(server empty)" -- both
+ *       auto-exit paths called exit_practice_mode(0) and the announce block
+ *       inferred the reason from id == 0
+ *     * FIXED: 17 of KTPMatchHandler's 33 hostname suffixes were missing, so
+ *       exiting practice left OT/DRAFT OT/MATCH/12MAN suffixes in place
+ *     * CHANGED: exit_practice_mode takes a PracExitReason with no default
  *
  * v1.4.6 (2026-07-08) - Truly-optional MatchHandler + noclip hygiene
  *   * FIXED: plugin failed to load when KTPMatchHandler was absent (bare
@@ -558,17 +566,23 @@ exit_practice_mode(id, PracExitReason:reason) {
     update_hostname();
 
     // Announce
-    if (id > 0) {
+    // Branch on the reason, not on id -- id only names the actor. Branching on
+    // id first is how the "(server empty)" misreport happened, and a console or
+    // rcon .endpractice (id == 0) would walk straight back into it.
+    if (reason == PRAC_EXIT_MATCH) {
+        // caller already announced "Match starting" in chat
+        log_amx("[KTPPracticeMode] Practice mode disabled (match starting)");
+    } else if (reason == PRAC_EXIT_EMPTY) {
+        client_print(0, print_chat, "[KTP] Practice mode DISABLED (server empty)");
+        log_amx("[KTPPracticeMode] Practice mode disabled (server empty)");
+    } else if (id > 0) {
         new name[32];
         get_user_name(id, name, charsmax(name));
         client_print(0, print_chat, "[KTP] Practice mode DISABLED by %s", name);
         log_amx("[KTPPracticeMode] Practice mode disabled by %s", name);
-    } else if (reason == PRAC_EXIT_MATCH) {
-        // caller already announced "Match starting" in chat
-        log_amx("[KTPPracticeMode] Practice mode disabled (match starting)");
     } else {
-        client_print(0, print_chat, "[KTP] Practice mode DISABLED (server empty)");
-        log_amx("[KTPPracticeMode] Practice mode disabled (server empty)");
+        client_print(0, print_chat, "[KTP] Practice mode DISABLED (console)");
+        log_amx("[KTPPracticeMode] Practice mode disabled (console)");
     }
 }
 
