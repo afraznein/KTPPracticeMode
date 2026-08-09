@@ -6,6 +6,41 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.4.8] - 2026-08-09
+
+### Fixed
+- `.grenade` printed "Grenade given." before reading any of the three DODX
+  return values, so a failed give was reported to the player as a success while
+  the failure went only to the server log. The message is now gated on the
+  returns, and an unambiguous failure says so.
+
+### Known limitation — this does NOT close the invisible-grenade case
+Only `give_ret == 0` is caught. `dodx_give_grenade` returns `-1` when the weapon
+entity it created was removed again, which it detects by the entity's solid state
+not changing across `pfnTouch` — that single signal **cannot distinguish** "the
+player already holds this weapon" from "the pickup was refused". `dodx.inc` says
+to treat `-1` as "entity not granted", and KTPGrenadeLoadout treats it as a
+failure (`!= 1`); this plugin does not, because a false "could not give grenade"
+on every call is the worse of the two errors here.
+
+Consequence: if `-1` really does mean the pickup was refused, ammo is still
+written to a player with no grenade weapon slot and `.grenade` still reports
+success. Resolving it needs a DODX change (test possession before creating the
+entity, and return a distinct code), not a plugin one.
+
+Context, not a resolution: measured on the Atlanta fleet logs, 15,280
+`dodx_give_grenade` non-success returns, **100% of them `-1`**, with zero
+`dodx_set_grenade_ammo` failures alongside. That says `-1` is the only failure
+mode the fleet produces — it does not say `-1` is harmless. The fleet-wide
+`dodx_give_grenade` investigation stays open.
+
+### Changed
+- Dropped the local `DODW_HANDGRENADE` / `DODW_STICKGRENADE` / `DODW_MILLS_BOMB`
+  defines. `dodconst.inc` is already included and declares all three with the
+  same values (13/14/36, verified against the enum ordinals). The `AMMOSLOT_*`
+  defines stay — those are DODX `weaponData` internals with no include.
+
+---
 ## [1.4.7] - 2026-08-09
 
 ### Fixed

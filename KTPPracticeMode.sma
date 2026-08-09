@@ -1,9 +1,9 @@
-/* KTP Practice Mode v1.4.7
+/* KTP Practice Mode v1.4.8
  * Server practice mode with infinite grenades, extended timelimit, and noclip
  *
  * AUTHOR: Nein_
- * VERSION: 1.4.7
- * DATE: 2026-07-08
+ * VERSION: 1.4.8
+ * DATE: 2026-08-09
  *
  * ========== FEATURES ==========
  * - Infinite grenades (refill on explosion)
@@ -27,6 +27,17 @@
  *   fine and treats "match active" as false (standalone practice server)
  *
  * ========== CHANGELOG ==========
+ *
+ * v1.4.8 (2026-08-09) - .grenade stops reporting a success it did not verify
+ *     * FIXED: .grenade printed "Grenade given." before any of the three dodx
+ *       return values were read, so a failed give read as a success.
+ *     * KNOWN LIMIT: only give_ret == 0 is caught. dodx_give_grenade's -1 is
+ *       ambiguous -- the native infers pickup from a solid-state change and
+ *       cannot distinguish "already holds one" from "pickup refused" -- so the
+ *       invisible-grenade case can still report success. Closing that needs a
+ *       DODX change, not a plugin one.
+ *     * CLEANUP: dropped the local DODW_* defines; dodconst.inc is included and
+ *       already declares them with the same values.
  *
  * v1.4.7 (2026-08-09) - Correct auto-exit reason + hostname suffix parity
  *     * FIXED: match-triggered auto-exit announced "(server empty)" -- both
@@ -158,15 +169,11 @@ native ktp_is_match_active();
 // must state one, or it inherits whatever the last author assumed.
 enum PracExitReason { PRAC_EXIT_COMMAND, PRAC_EXIT_EMPTY, PRAC_EXIT_MATCH };
 
-#define PLUGIN_VERSION "1.4.7"
+#define PLUGIN_VERSION "1.4.8"
 #define PLUGIN_AUTHOR  "Nein_"
 
-// Grenade weapon IDs
-#define DODW_HANDGRENADE  13
-#define DODW_STICKGRENADE 14
-#define DODW_MILLS_BOMB   36
-
-// Ammo slots for HUD sync (AmmoX message)
+// Ammo slots for HUD sync (AmmoX message) — these are DODX weaponData
+// internals, not dodconst constants, so they have no include to come from.
 #define AMMOSLOT_HANDGRENADE   9
 #define AMMOSLOT_STICKGRENADE  11
 
@@ -491,10 +498,17 @@ public cmd_grenade(id) {
     new setammo_ret = dodx_set_grenade_ammo(id, wpnid, 1);
     new ammoSlot = (wpnid == DODW_STICKGRENADE) ? AMMOSLOT_STICKGRENADE : AMMOSLOT_HANDGRENADE;
     new sendammox_ret = dodx_send_ammox(id, ammoSlot, 1);
-    client_print(id, print_chat, "[KTP] Grenade given.");
 
-    log_amx("[KTPPracticeMode] cmd_grenade: id=%d team=%d wpnid=%d give=%d setammo=%d sendammox=%d ammoSlot=%d",
-        id, team, wpnid, give_ret, setammo_ret, sendammox_ret, ammoSlot);
+    // Only 0 is an unambiguous failure. give_ret -1 cannot be judged here: the
+    // native infers pickup from a solid-state change, so it cannot tell "already
+    // holds one" from "pickup refused". Raw returns go to the log either way.
+    new bool:granted = (give_ret != 0 && setammo_ret != 0 && sendammox_ret != 0);
+    client_print(id, print_chat, granted
+        ? "[KTP] Grenade given."
+        : "[KTP] Could not give grenade - reported to the server log.");
+
+    log_amx("[KTPPracticeMode] cmd_grenade: id=%d team=%d wpnid=%d give=%d setammo=%d sendammox=%d ammoSlot=%d granted=%d",
+        id, team, wpnid, give_ret, setammo_ret, sendammox_ret, ammoSlot, granted);
 
     return PLUGIN_HANDLED;
 }
