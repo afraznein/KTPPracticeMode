@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.4.7] - 2026-08-09
+
+### Fixed
+- Auto-exit on match start no longer announces "(server empty)". Both auto-exit
+  paths called `exit_practice_mode(0)`, and the announce block read `id == 0` as
+  "empty", so every match-triggered exit logged the wrong reason.
+- `strip_hostname_suffixes()` matched 17 hostname suffixes against
+  KTPMatchHandler's 34. A hostname carrying any of the missing ones (all the OT,
+  DRAFT OT, MATCH and 12MAN variants) kept its suffix, so practice mode restored
+  a hostname that still read as a live match.
+
+### Changed
+- `exit_practice_mode()` takes a `PracExitReason` with **no default value**, so a
+  new auto-exit trigger cannot silently inherit another path's message.
+- The suffix array is now KTPMatchHandler's, verbatim and in the same order —
+  order is load-bearing (`" - KTP OT - PAUSED"` must precede the generic
+  `" - PAUSED"` tail, or the strip lands mid-string). A future drift now shows up
+  as a plain diff between the two arrays.
+
 ## [Unreleased]
 
 ### Documentation

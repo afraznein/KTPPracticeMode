@@ -146,7 +146,11 @@
 native ktp_is_match_active();
 
 #define PLUGIN_NAME    "KTP Practice Mode"
-#define PLUGIN_VERSION "1.4.6"
+// No default on exit_practice_mode's reason param: a new auto-exit trigger
+// must state one, or it inherits whatever the last author assumed.
+enum PracExitReason { PRAC_EXIT_COMMAND, PRAC_EXIT_EMPTY, PRAC_EXIT_MATCH };
+
+#define PLUGIN_VERSION "1.4.7"
 #define PLUGIN_AUTHOR  "Nein_"
 
 // Grenade weapon IDs
@@ -416,7 +420,7 @@ public cmd_endpractice(id) {
         return PLUGIN_HANDLED;
     }
 
-    exit_practice_mode(id);
+    exit_practice_mode(id, PRAC_EXIT_COMMAND);
     return PLUGIN_HANDLED;
 }
 
@@ -496,7 +500,7 @@ public task_check_players() {
     if (is_match_active()) {
         client_print(0, print_chat, "[KTP] Practice mode DISABLED - Match starting.");
         log_amx("[KTPPracticeMode] Match initiated - auto-exiting practice mode");
-        exit_practice_mode(0);
+        exit_practice_mode(0, PRAC_EXIT_MATCH);
         return;
     }
 
@@ -510,11 +514,11 @@ public task_check_players() {
 
     if (playerCount == 0) {
         log_amx("[KTPPracticeMode] Server empty - auto-exiting practice mode");
-        exit_practice_mode(0);
+        exit_practice_mode(0, PRAC_EXIT_EMPTY);
     }
 }
 
-exit_practice_mode(id) {
+exit_practice_mode(id, PracExitReason:reason) {
     g_bPracticeMode = false;
 
     // Clear localinfo state
@@ -559,6 +563,9 @@ exit_practice_mode(id) {
         get_user_name(id, name, charsmax(name));
         client_print(0, print_chat, "[KTP] Practice mode DISABLED by %s", name);
         log_amx("[KTPPracticeMode] Practice mode disabled by %s", name);
+    } else if (reason == PRAC_EXIT_MATCH) {
+        // caller already announced "Match starting" in chat
+        log_amx("[KTPPracticeMode] Practice mode disabled (match starting)");
     } else {
         client_print(0, print_chat, "[KTP] Practice mode DISABLED (server empty)");
         log_amx("[KTPPracticeMode] Practice mode disabled (server empty)");
@@ -644,23 +651,40 @@ update_hostname() {
 // Strip match state suffixes from hostname to get base name
 strip_hostname_suffixes(hostname[]) {
     static const patterns[][] = {
-        " - PRACTICE",
-        " - KTP OT - LIVE",
+        " - KTP OT - LIVE - OT",      // OT rounds (partial, will match OT1, OT2, etc.)
+        " - KTP OT - PENDING",        // fresh explicit-OT sits in PENDING before round 1
+        " - KTP OT - PAUSED",         // full match needed: the generic " - PAUSED" tail
+                                      // would strip mid-string and leave " - KTP OT"
         " - KTP - LIVE - 1ST HALF",
         " - KTP - LIVE - 2ND HALF",
         " - KTP - PAUSED",
         " - KTP - PENDING",
-        " - 12MAN - LIVE",
+        " - 12MAN - LIVE - 1ST HALF",
+        " - 12MAN - LIVE - 2ND HALF",
         " - 12MAN - PAUSED",
         " - 12MAN - PENDING",
-        " - SCRIM - LIVE",
+        " - SCRIM - LIVE - 1ST HALF",
+        " - SCRIM - LIVE - 2ND HALF",
         " - SCRIM - PAUSED",
         " - SCRIM - PENDING",
-        " - DRAFT - LIVE",
+        " - DRAFT - LIVE - 1ST HALF",
+        " - DRAFT - LIVE - 2ND HALF",
         " - DRAFT - PAUSED",
         " - DRAFT - PENDING",
-        " - DRAFT OT - LIVE",
-        " - WARMUP"
+        " - DRAFT OT - LIVE - OT",
+        " - DRAFT OT - PENDING",
+        " - DRAFT OT - PAUSED",
+        " - MATCH - LIVE",            // default typeStr fallback ("MATCH")
+        " - MATCH - PENDING",
+        " - MATCH - PAUSED",
+        " - KTP Match In Progress",   // Legacy format
+        " - Match in Progress",
+        " - LIVE",
+        " - PAUSED",
+        " - PENDING",
+        " - PRE-MATCH",
+        " - WARMUP",
+        " - PRACTICE"
     };
 
     for (new i = 0; i < sizeof(patterns); i++) {
