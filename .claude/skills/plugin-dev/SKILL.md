@@ -19,9 +19,12 @@ Follow every rule below; when a rule and your instinct disagree, the rule wins
 ## Architecture constraints
 - **Extension mode**: KTPAMXX loads as a ReHLDS extension — there is NO Metamod and
   NO fakemeta. Engine/DODX interaction comes only through DODX natives
-  (`dodx_give_grenade`, `dodx_set_grenade_ammo`, `dodx_send_ammox`,
-  `dodx_set_user_noclip`) and the `dod_grenade_explosion` forward. Never add a
-  fakemeta/engine-module dependency.
+  (`dodx_give_grenade`, `dodx_set_grenade_ammo`, `dodx_set_user_noclip`) and the
+  `dod_grenade_explosion` forward. Never add a fakemeta/engine-module dependency.
+  **Do not send AmmoX by hand.** 1.4.9 removed the last `dodx_send_ammox` call:
+  DODX 2.7.29 stopped writing `m_rgAmmoLast`, so the DLL's own `SendAmmoUpdate`
+  diffs the pair each frame and emits for the slot it actually wrote. A plugin
+  message is a second, unsynchronised writer of the same client counter.
 - Pawn globals persist for the life of the process, not per map — anything that
   needs a per-map reset (noclip tracking, saved `mp_timelimit`) must be cleared
   explicitly in the map-change cleanup path, not assumed to reinit.
@@ -43,16 +46,17 @@ empty. If you touch `exit_practice_mode` or add a new auto-exit trigger:
   and announced the specific reason.
 
 ## Grenade-native return values are not decorative
-`dodx_give_grenade`, `dodx_set_grenade_ammo`, and `dodx_send_ammox` all
-document `0` as a real failure return. `.grenade` currently prints
-`"Grenade given."` to the player unconditionally, before those return values
-are even checked — a failed give is reported as a success, with only a
-server-log line (invisible to the player) marking the failure. `dod_grenade_explosion`'s auto-refill already does this right (checks
-`!give_ret` etc. before deciding what happened) — copy that pattern, not the
-`.grenade` one, in any new code that calls these natives. Note
+`dodx_give_grenade` and `dodx_set_grenade_ammo` both document `0` as a real
+failure return. Both `.grenade` and `dod_grenade_explosion`'s auto-refill now
+check them before deciding what happened (`.grenade` printed
+`"Grenade given."` unconditionally until 1.4.8, reporting a failed give as a
+success) — copy that pattern in any new code that calls these natives, and gate
+the player-visible message on the natives that actually decide the outcome. Note
 `dodx_give_grenade` also returns `-1` for a benign non-failure case — don't
 treat every non-1 return as an error without checking which native it came
-from.
+from. Separately, 2.7.29 changed `dodx_get_grenade_ammo`'s failure return from
+`0` to `-1`, so an `== 0` test on a *count* no longer catches an unreadable
+one.
 
 ## Hostname suffix list: shared state, not shared code
 `strip_hostname_suffixes()` here and `extract_base_hostname()` in
@@ -127,8 +131,6 @@ out to the scratch dir over running tools "in place".
 ## Known open findings (not yet fixed — don't rediscover, don't accidentally fix silently)
 - Auto-exit's `id==0` reason overload (see above) prints a false "server
   empty" message on match-start auto-exit.
-- `.grenade` reports success unconditionally regardless of native return
-  values (see above).
 - `strip_hostname_suffixes()` is missing 3 entries KTPMatchHandler's copy has
   (`" - KTP OT - PENDING"`, `" - KTP OT - PAUSED"`, `" - KTP Match In
   Progress"`) — no confirmed live trigger, but the drift itself is the hazard.

@@ -6,6 +6,58 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.4.9] - 2026-08-15
+
+### Fixed
+- Both grenade paths sent their own `AmmoX` at a hardcoded ammo slot (9 for the
+  hand grenade, 11 for the stick grenade) immediately after
+  `dodx_set_grenade_ammo`. That message was only ever needed because DODX also
+  wrote `m_rgAmmoLast`, which suppressed the game DLL's own `AmmoX` —
+  `SendAmmoUpdate` diffs the pair every frame. DODX 2.7.29 stopped writing it, so
+  the DLL now emits the update itself, for the slot it actually wrote. Both
+  `dodx_send_ammox` calls are removed.
+- **The 9/11 constants themselves were correct** — do not read this as a fix for
+  a wrong value. DoD's `W_Precache()` makes 31 unconditional
+  `UTIL_PrecacheOtherWeapon` calls in a fixed order, so the ammo registry is
+  invariant by construction (measured on six maps incl. `dod_anzio` and
+  `dod_harrington`), and DODX 2.7.29 keeps 9/11 as its own documented fallback.
+  What was wrong is **ownership**: two unsynchronised writers of one client
+  counter, one of them a constant maintained by hand in a plugin while DODX
+  resolves the same fact at runtime.
+- Neither path checked `setammo_ret` before sending, so a failed ammo write still
+  advertised a grenade on the HUD. `.grenade`'s `granted` now rests on
+  `give_ret` + `setammo_ret`, which is the pair that decides whether the player
+  actually got one; `sendammox_ret` never was evidence of that.
+
+### ⚠️ Ordering — do not ship this before DODX 2.7.29
+The fleet runs DODX 2.7.27. This plugin still *loads* there — the removal
+deliberately adds no new native — but **behaviour is undefined, not merely
+degraded.** 2.7.27 writes `m_rgAmmoLast` (suppressing the DLL's AmmoX) *and*
+addresses `m_rgAmmo` one int low: `PDOFFSET_BASE_HANDGRENADE_2` is 289 with
+`g_iLinuxPdataOffsetAdjust` defaulting to **4**, so it writes `m_rgAmmo[8]` where
+slot 9 is int 294. The ammo does not land on the right slot there with or without
+this change; today's manual `AmmoX(9,n)` was masking that with a HUD count the
+player does not have. Stage the module first, or in the same nightly ahead of it.
+
+Removing the call (rather than switching it to `dodx_get_grenade_ammo_index()`)
+is deliberate: the new native would be an unresolved-native load failure against
+2.7.27, and the DLL's emission is already both necessary and sufficient —
+`m_rgAmmoLast` is by construction what the client last received, so the DLL emits
+exactly when the client is wrong.
+
+### Changed
+- Requirements floor raised to KTPAMXX 2.7.29+.
+
+### Verification owed
+The premise -- that the DLL's own `AmmoX` is sufficient once DODX stops writing
+`m_rgAmmoLast` -- is read out of the shipped `dod_i386.so`, not observed in game.
+DODX 2.7.29 owes a live-client pass for the same reason (that a grenade throw
+decrements the HUD is unverified in-game). **Verify this plugin in that same
+pass**, not separately: if the DLL turns out not to emit on some path, the symptom
+here is a HUD count that stops moving.
+
+---
+
 ## [1.4.8] - 2026-08-09
 
 ### Fixed

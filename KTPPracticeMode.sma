@@ -1,9 +1,9 @@
-/* KTP Practice Mode v1.4.8
+/* KTP Practice Mode v1.4.9
  * Server practice mode with infinite grenades, extended timelimit, and noclip
  *
  * AUTHOR: Nein_
- * VERSION: 1.4.8
- * DATE: 2026-08-09
+ * VERSION: 1.4.9
+ * DATE: 2026-08-15
  *
  * ========== FEATURES ==========
  * - Infinite grenades (refill on explosion)
@@ -21,12 +21,30 @@
  * - .grenade / .nade - Get a grenade (only during practice mode)
  *
  * ========== REQUIREMENTS ==========
- * - KTPAMXX 2.7.4+ with DODX module (grenade natives, dod_grenade_explosion
- *   forward). 2.7.4 is the floor — earlier builds break .noclip on first map load.
+ * - KTPAMXX 2.7.29+ with DODX module (grenade natives, dod_grenade_explosion
+ *   forward). 2.7.29 is the floor since 1.4.9 — older DODX suppresses the DLL's
+ *   own AmmoX, and this plugin no longer sends a replacement. Behaviour against
+ *   an older module is UNDEFINED, not merely degraded — 2.7.27 also addresses
+ *   m_rgAmmo one int low, so its ammo writes land on the wrong slot anyway.
  * - KTPMatchHandler (optional) - match detection; without it the plugin loads
  *   fine and treats "match active" as false (standalone practice server)
  *
  * ========== CHANGELOG ==========
+ *
+ * v1.4.9 (2026-08-15) - Drop the manual AmmoX; the DLL emits its own
+ *     * FIXED: the manual AmmoX was only ever needed because DODX wrote
+ *       m_rgAmmoLast, which suppressed the DLL's own AmmoX -- SendAmmoUpdate
+ *       diffs the pair every frame. DODX 2.7.29 stopped writing it, so the DLL
+ *       now emits for the slot it actually wrote and the extra message is a
+ *       second, unsynchronised writer of the same client counter.
+ *     * The 9/11 constants themselves were RIGHT -- DoD precaches all weapons
+ *       in a fixed order, so they are invariant, and 2.7.29 keeps them as its
+ *       own fallback. Removing the message is about ownership, not a bad value.
+ *     * FIXED: the refill and .grenade paths sent that message without checking
+ *       setammo_ret, so a failed write still advertised a grenade to the HUD.
+ *       .grenade's "granted" now rests on give + setammo only, which is the pair
+ *       that actually decides whether the player got one.
+ *     * ORDERING: must not ship before DODX 2.7.29 is live on the fleet.
  *
  * v1.4.8 (2026-08-09) - .grenade stops reporting a success it did not verify
  *     * FIXED: .grenade printed "Grenade given." before any of the three dodx
@@ -169,13 +187,8 @@ native ktp_is_match_active();
 // must state one, or it inherits whatever the last author assumed.
 enum PracExitReason { PRAC_EXIT_COMMAND, PRAC_EXIT_EMPTY, PRAC_EXIT_MATCH };
 
-#define PLUGIN_VERSION "1.4.8"
+#define PLUGIN_VERSION "1.4.9"
 #define PLUGIN_AUTHOR  "Nein_"
-
-// Ammo slots for HUD sync (AmmoX message) — these are DODX weaponData
-// internals, not dodconst constants, so they have no include to come from.
-#define AMMOSLOT_HANDGRENADE   9
-#define AMMOSLOT_STICKGRENADE  11
 
 // Practice mode state
 new bool:g_bPracticeMode = false;
@@ -362,16 +375,16 @@ public dod_grenade_explosion(id, Float:pos[3], wpnid) {
     if (!is_user_connected(id) || !is_user_alive(id))
         return;
 
-    // Refill grenade: give weapon entity (in case slot was removed) then set ammo + sync HUD
+    // Refill grenade: give weapon entity (in case slot was removed) then set ammo.
+    // The HUD follows on its own -- dodx_set_grenade_ammo writes m_rgAmmo alone,
+    // so the DLL's SendAmmoUpdate emits AmmoX for the slot it actually wrote.
     new give_ret = dodx_give_grenade(id, wpnid);
     new setammo_ret = dodx_set_grenade_ammo(id, wpnid, 1);
-    new ammoSlot = (wpnid == DODW_STICKGRENADE) ? AMMOSLOT_STICKGRENADE : AMMOSLOT_HANDGRENADE;
-    new sendammox_ret = dodx_send_ammox(id, ammoSlot, 1);
 
     // Log only when a refill step fails
-    if (!give_ret || !setammo_ret || !sendammox_ret) {
-        log_amx("[KTPPracticeMode] refill FAILED: id=%d wpnid=%d give=%d setammo=%d sendammox=%d ammoSlot=%d",
-            id, wpnid, give_ret, setammo_ret, sendammox_ret, ammoSlot);
+    if (!give_ret || !setammo_ret) {
+        log_amx("[KTPPracticeMode] refill FAILED: id=%d wpnid=%d give=%d setammo=%d",
+            id, wpnid, give_ret, setammo_ret);
     }
 }
 
@@ -492,23 +505,22 @@ public cmd_grenade(id) {
         return PLUGIN_HANDLED;
     }
 
-    // Give weapon entity (creates pickup if slot was removed after throwing last grenade)
-    // then set ammo + sync HUD
+    // Give weapon entity (creates pickup if slot was removed after throwing last
+    // grenade) then set ammo. The HUD follows on its own -- dodx_set_grenade_ammo
+    // writes m_rgAmmo alone, so the DLL's SendAmmoUpdate emits for that slot.
     new give_ret = dodx_give_grenade(id, wpnid);
     new setammo_ret = dodx_set_grenade_ammo(id, wpnid, 1);
-    new ammoSlot = (wpnid == DODW_STICKGRENADE) ? AMMOSLOT_STICKGRENADE : AMMOSLOT_HANDGRENADE;
-    new sendammox_ret = dodx_send_ammox(id, ammoSlot, 1);
 
     // Only 0 is an unambiguous failure. give_ret -1 cannot be judged here: the
     // native infers pickup from a solid-state change, so it cannot tell "already
     // holds one" from "pickup refused". Raw returns go to the log either way.
-    new bool:granted = (give_ret != 0 && setammo_ret != 0 && sendammox_ret != 0);
+    new bool:granted = (give_ret != 0 && setammo_ret != 0);
     client_print(id, print_chat, granted
         ? "[KTP] Grenade given."
         : "[KTP] Could not give grenade - reported to the server log.");
 
-    log_amx("[KTPPracticeMode] cmd_grenade: id=%d team=%d wpnid=%d give=%d setammo=%d sendammox=%d ammoSlot=%d granted=%d",
-        id, team, wpnid, give_ret, setammo_ret, sendammox_ret, ammoSlot, granted);
+    log_amx("[KTPPracticeMode] cmd_grenade: id=%d team=%d wpnid=%d give=%d setammo=%d granted=%d",
+        id, team, wpnid, give_ret, setammo_ret, granted);
 
     return PLUGIN_HANDLED;
 }

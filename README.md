@@ -1,6 +1,6 @@
 # KTP Practice Mode
 
-**Version 1.4.8** - Practice mode plugin for Day of Defeat servers
+**Version 1.4.9** - Practice mode plugin for Day of Defeat servers
 
 An AMX Mod X plugin that provides a practice mode with infinite grenades, extended timelimit, noclip, and automatic cleanup when the server empties or a match starts.
 
@@ -23,20 +23,27 @@ An AMX Mod X plugin that provides a practice mode with infinite grenades, extend
 
 ## Requirements
 
-- **KTPAMXX 2.7.4+** with DODX module:
+- **KTPAMXX 2.7.29+** with DODX module:
   - `dod_grenade_explosion` forward
   - `dodx_give_grenade()` native
   - `dodx_set_grenade_ammo()` native
-  - `dodx_send_ammox()` native
   - `dodx_set_user_noclip()` native
   - `dod_get_user_class()` native
 
-  All six are hard-linked — only `ktp_is_match_active()` sits behind the native
+  All five are hard-linked — only `ktp_is_match_active()` sits behind the native
   filter. A DODX build missing any of them is a load failure, not a degraded mode.
 
-  2.7.4 is a hard floor, not a recommendation: earlier builds miss the DODX
-  fallback init for the first map load, so in extension mode `CPlayer` is
-  uninitialized and **`.noclip` silently does nothing** on the first map.
+  2.7.4 was the previous floor: earlier builds miss the DODX fallback init for
+  the first map load, so in extension mode `CPlayer` is uninitialized and
+  **`.noclip` silently does nothing** on the first map.
+
+  **2.7.29 is the floor since 1.4.9, and it does not fail loudly.** Older DODX
+  writes `m_rgAmmoLast` alongside `m_rgAmmo`, which suppresses the game DLL's own
+  `AmmoX`; 1.4.9 dropped the manual `dodx_send_ammox()` that used to paper over
+  that. On an older module the plugin still loads, but behaviour is **undefined, not
+  merely degraded**: 2.7.27 also addresses `m_rgAmmo` one int low (base 289 +
+  adjust 4 = slot 8, not 9), so its ammo writes miss the right slot with or
+  without this change. **Ship the module first.**
 
 ### Optional: KTPMatchHandler
 
