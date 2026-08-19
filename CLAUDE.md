@@ -38,13 +38,17 @@ This will:
 - **Map change handling**: Properly cleans up and announces on new map
 
 ## Dependencies
-- **KTPAMXX 2.7.4+** with DODX module (2.7.4 is a hard floor — below it, DODX
-  `CPlayer` is uninitialized on the first map load in extension mode and
-  `.noclip` silently does nothing):
+- **KTPAMXX 2.7.29+** with DODX module. Two separate floors, and only the older
+  one fails loudly: below 2.7.4 DODX `CPlayer` is uninitialized on the first map
+  load in extension mode and `.noclip` silently does nothing; below 2.7.29 DODX
+  writes `m_rgAmmoLast` and suppresses the DLL's own `AmmoX`, so the grenade HUD
+  count stops moving (1.4.9 removed the manual `dodx_send_ammox` that covered
+  for that). Behaviour on an older module is **undefined, not merely degraded** —
+  2.7.27 also addresses `m_rgAmmo` one int low, so its ammo writes miss the right
+  slot regardless. **Stage the module before this plugin.**
   - `dod_grenade_explosion` forward
   - `dodx_give_grenade()` native
   - `dodx_set_grenade_ammo()` native
-  - `dodx_send_ammox()` native
   - `dodx_set_user_noclip()` native
   - `dod_get_user_class()` native
 - **KTPMatchHandler** (optional) - For `ktp_is_match_active()` native. Since
