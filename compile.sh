@@ -7,6 +7,24 @@
 
 set -e  # Exit on error
 
+# A failed build must be VISIBLE, not merely non-zero. Callers pipe this script
+# (`| tail`, `| tee`), and the shell then reports the PIPE's status -- so a failed
+# build reads as exit 0 unless the log itself says so. Gate on the banners below,
+# never on the exit code.
+_ktp_build_exit() {
+    local rc=$?
+    if [ "$rc" -ne 0 ]; then
+        echo ""
+        echo "========================================"
+        echo "[KTP-BUILD] FAILED: KTPPracticeMode compile.sh exited $rc"
+        echo "========================================"
+        echo "Nothing has been staged."
+    fi
+    exit "$rc"
+}
+trap _ktp_build_exit EXIT
+
+
 # Empty string = production build; "1" = test-mode build.
 TEST_MODE="${KTP_TEST_MODE:-}"
 
@@ -127,14 +145,18 @@ sed 's/\r$//' "$SCRIPT_DIR/$PLUGIN_NAME.sma" > "$TEMP_BUILD/$PLUGIN_NAME.sma"
 # Compile. amxxpc accepts trailing positional NAME=VALUE args as injected
 # `#define`s; KTP_TEST_MODE=1 enables the test-mode block in the .sma.
 cd "$TEMP_BUILD"
+# `set -e` would kill the script here, so the check below never ran.
+set +e
 if [ "$TEST_MODE" = "1" ]; then
     echo "[INFO] Building with -DKTP_TEST_MODE — adds amx_ktp_prac_test_enable (ADMIN_RCON, cmd_access-gated) + entry diagnostics"
     ./amxxpc "$PLUGIN_NAME.sma" -i./include -o"$PLUGIN_NAME.amxx" KTP_TEST_MODE=1
 else
     ./amxxpc "$PLUGIN_NAME.sma" -i./include -o"$PLUGIN_NAME.amxx"
 fi
+AMXXPC_RC=$?
+set -e
 
-if [ $? -ne 0 ]; then
+if [ "$AMXXPC_RC" -ne 0 ]; then
     echo
     echo "========================================"
     echo "[FAILED] Compilation failed!"
@@ -170,3 +192,7 @@ fi
 
 echo
 echo "Done!"
+
+# Success sentinel, last line on the only path that reaches here. A caller checks
+# for this rather than for `$?`, which a pipe launders.
+echo "[KTP-BUILD] OK: KTPPracticeMode compile.sh"
