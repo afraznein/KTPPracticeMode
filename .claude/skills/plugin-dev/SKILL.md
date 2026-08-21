@@ -51,10 +51,15 @@ failure return. Both `.grenade` and `dod_grenade_explosion`'s auto-refill now
 check them before deciding what happened (`.grenade` printed
 `"Grenade given."` unconditionally until 1.4.8, reporting a failed give as a
 success) — copy that pattern in any new code that calls these natives, and gate
-the player-visible message on the natives that actually decide the outcome. Note
-`dodx_give_grenade` also returns `-1` for a benign non-failure case — don't
-treat every non-1 return as an error without checking which native it came
-from. Separately, 2.7.29 changed `dodx_get_grenade_ammo`'s failure return from
+the player-visible message on the natives that actually decide the outcome.
+`dodx_give_grenade` can also return `-1`, and **its meaning is not settled.**
+This file used to call it a benign non-failure case; `CHANGELOG.md`'s 1.4.8 entry
+reaches the opposite conclusion from a corpus that turned out to belong to
+KTPGrenadeLoadout, where the call is gated such that its `-1`s are unambiguous
+failures. The shipped behaviour is deliberately narrower than either reading:
+judge the strict `0`/`1` returns and leave `-1` explicitly unjudged. Read that
+changelog entry before building any check on `-1` — the first attempt at a fix
+here was rejected in review for relying on the benign reading. Separately, 2.7.29 changed `dodx_get_grenade_ammo`'s failure return from
 `0` to `-1`, so an `== 0` test on a *count* no longer catches an unreadable
 one.
 
@@ -67,12 +72,29 @@ other. If you're touching this area for real, prefer factoring the pattern
 list into a shared include both plugins consume, rather than adding a fourth
 place it can drift from.
 
+**The suffix text is an interface, not presentation.** Hostname-derived
+identifiers elsewhere in the stack consume whatever this appends, and whitespace
+inside a suffix has already propagated into a match ID and made HLTV reject its
+`record` command outright — recording then silently did not happen while practice
+mode was active. Treat spacing and punctuation in these patterns as load-bearing,
+and check what downstream derives from the hostname before changing one.
+
 ## Logging discipline
 Refill/grenade logging is **failure-only**. An earlier ungated per-grenade
 debug log line ran on every grenade explosion in live matches and became a
 stall-frame source under the fleet's file-write bottleneck — don't reintroduce
 unconditional per-event logging on a path this hot (every grenade explosion,
 on every instance, every match).
+
+**The failure-only line that remains is detection infrastructure, not leftover
+diagnostics — don't tidy it away.** The contract tests stop at the practice-mode
+gate, and when the gate fails the refill natives never run, so "a refill native
+returned zero" is structurally unreachable from the suite; that log line is the
+only thing that would ever surface it. Know its blind spot too: if every native
+reports success and no grenade actually appears, nothing logs at all and a player
+noticing is the only signal. Because the section above is otherwise about what
+must *not* be logged, a future reader has every reason to mistake this line for
+more of the same.
 
 ## Pawn checklist (apply to every diff)
 - `charsmax(buf)` for every format/copy; watch truncation on composed strings.
@@ -127,6 +149,14 @@ out to the scratch dir over running tools "in place".
    leftover `.new`, and check `/tmp` for cores — `find /tmp -maxdepth 1 -name
    'core.*' -mtime -1` on every host. A game-tree core search proves nothing
    (matches only core.so/core.ini/core.wav).
+
+⚠️ **A grenade or noclip fix cannot be validated after a `changelevel`.** The
+root cause this whole area was built around was a module-side initialisation that
+never ran on the first map of a process, so the player-manipulation natives
+silently no-opped until the first map change. A test run after a `changelevel`
+therefore exercises the already-healthy path and passes without ever touching the
+bug. Exercise all three lifecycle shapes: the map the server booted into, a
+`changelevel` away from it, and a `changelevel` from an already-changed map.
 
 ## Known open findings (not yet fixed — don't rediscover, don't accidentally fix silently)
 - Auto-exit's `id==0` reason overload (see above) prints a false "server
