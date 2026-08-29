@@ -35,13 +35,13 @@ Follow every rule below; when a rule and your instinct disagree, the rule wins
   KTPMatchHandler native directly without going through that filtered path.
 
 ## The auto-exit reason trap
-`exit_practice_mode(id)` currently overloads `id==0` to mean two unrelated
-triggers: a genuine empty-server auto-exit, and a match-starting auto-exit.
-Both fall into the same branch, so a match starting while players are still
-connected prints/logs the "server empty" message even though the server isn't
-empty. If you touch `exit_practice_mode` or add a new auto-exit trigger:
-- Give it a real reason, not another `id==0` caller (an enum or explicit
-  `reason` parameter). Don't perpetuate the overload.
+`exit_practice_mode(id, PracExitReason:reason)` takes an explicit reason with
+**no default on purpose** (since 1.4.7). It used to overload `id==0` to mean
+both "server emptied" and "match starting", so a match-start auto-exit printed
+"server empty" to a full server. If you touch `exit_practice_mode` or add a
+new auto-exit trigger:
+- Give it its own `PracExitReason` value — never infer the reason from `id`;
+  `id` only names the actor, and the announce branches on the reason.
 - Don't let the callee's generic message fire when the caller already knows
   and announced the specific reason.
 
@@ -66,8 +66,8 @@ one.
 ## Hostname suffix list: shared state, not shared code
 `strip_hostname_suffixes()` here and `extract_base_hostname()` in
 KTPMatchHandler are two hand-maintained copies of the same pattern array, and
-they have already drifted (MatchHandler's list is ahead by several entries —
-diff both arrays before trusting either one). If you change one, check the
+they have drifted before (1.4.7 brought them back into parity — diff both
+arrays before trusting either one). If you change one, check the
 other. If you're touching this area for real, prefer factoring the pattern
 list into a shared include both plugins consume, rather than adding a fourth
 place it can drift from.
@@ -159,8 +159,6 @@ bug. Exercise all three lifecycle shapes: the map the server booted into, a
 `changelevel` away from it, and a `changelevel` from an already-changed map.
 
 ## Known open findings (not yet fixed — don't rediscover, don't accidentally fix silently)
-- Auto-exit's `id==0` reason overload (see above) prints a false "server
-  empty" message on match-start auto-exit.
-- `strip_hostname_suffixes()` is missing 3 entries KTPMatchHandler's copy has
-  (`" - KTP OT - PENDING"`, `" - KTP OT - PAUSED"`, `" - KTP Match In
-  Progress"`) — no confirmed live trigger, but the drift itself is the hazard.
+None right now. The two that used to live here — the auto-exit `id==0` reason
+overload and the hostname suffix-list drift — both shipped in 1.4.7; see
+`CHANGELOG.md` and the sections above for what the fixes locked in.
